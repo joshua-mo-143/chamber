@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = ["boulder-cli","boulder-server","boulder-db"]
+default_members = ["boulder-server"]
+
+
+[workspace.dependencies]
+aes-gcm = "0.10.3"
+axum = "0.6.20"
+chrono = { version = "0.4.31", features = ["clock", "serde"] }
+hyper = { version = "0.14", features = ["full"] }
+nanoid = "0.4.0"
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0.108"
+shuttle-axum = { version = "0.35.0"}
+shuttle-runtime = { version = "0.35.0"}
+tokio = { version = "1.28.2", features = ["sync"] }
+tower = "0.4.13"
+tracing = "0.1.40"
+typenum = "1.17.0"
