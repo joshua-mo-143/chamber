@@ -27,18 +27,16 @@ Currently boulder only supports deployment through Shuttle, but Dockerfile deplo
 	- [x] Unsealing route
 	- [x] Set/get/remove secrets
 	- [x] Create/delete users
-
-- [] Database
-	- [x] KV in-memory database
-		- [x] AES-256-GCM en/decryption
-		- [x] Seal/unseal using API key
-		- [x] Basic IAM system
-		- [] Secrets grouping
-	- [] Postgres database
-		- [] AES-256-GCM en/decryption
-		- [] Seal/unseal using API key
-		- [] Basic IAM system
-		- [] Secrets grouping
+- [x] KV in-memory database
+	- [x] AES-256-GCM en/decryption
+	- [x] Seal/unseal using API key
+	- [x] Basic IAM system
+	- [ ] Secrets grouping
+- [ ] Postgres database
+	- [ ] AES-256-GCM en/decryption
+	- [ ] Seal/unseal using API key
+	- [ ] Basic IAM system
+	- [ ] Secrets grouping
 
 ## Project Layout
 - boulder-cli: The CLI.
