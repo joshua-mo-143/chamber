@@ -1,17 +1,16 @@
 use axum::{
-    TypedHeader,
     extract::State,
     http::{Request, StatusCode},
     middleware::Next,
     response::IntoResponse,
-    Json,
+    Json, TypedHeader,
 };
 use serde::Deserialize;
 
-use boulder_db::core::Database;
-use crate::errors::ApiError;
-use crate::state::AppState;
 use crate::auth::Claims;
+use crate::errors::ApiError;
+use crate::state::DynDatabase;
+use boulder_db::users::Role;
 
 use crate::header::BoulderHeader;
 
@@ -22,8 +21,8 @@ pub struct Secret {
 }
 
 pub async fn create_secret(
-    State(AppState { db, .. }): State<AppState>,
-    claim: Claims,
+    State(db): State<DynDatabase>,
+    _claim: Claims,
     Json(Secret { key, value }): Json<Secret>,
 ) -> Result<impl IntoResponse, ApiError> {
     db.create_secret(key, value).await.unwrap();
@@ -37,43 +36,44 @@ pub struct SecretKey {
 }
 
 pub async fn view_secret(
-    State(AppState { db, .. }): State<AppState>,
-    claim: Claims,
+    State(db): State<DynDatabase>,
+    _claim: Claims,
     Json(secret): Json<SecretKey>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let roles = db.get_roles_for_user(claim.sub).await.unwrap();
-    let string = db.view_secret(roles, secret.key).await.unwrap();
+    let role = Role::Guest;
+    let string = db.view_secret(role, secret.key).await.unwrap();
 
     Ok(string)
 }
 
+pub async fn view_all_secrets(
+    State(db): State<DynDatabase>,
+    _claim: Claims,
+) -> Result<impl IntoResponse, ApiError> {
+    let role = Role::Guest;
+    let string = db.view_all_secrets(role).await.unwrap();
+
+    Ok(Json(string))
+}
+
 pub async fn check_locked<B>(
-    State(state): State<AppState>,
+    State(state): State<DynDatabase>,
     req: Request<B>,
     next: Next<B>,
 ) -> Result<impl IntoResponse, ApiError> {
-    tracing::error!("Middleware triggered!");
-
-    let state = state.db.lock.is_sealed.lock().await;
-
-    if *state {
-        return Err(ApiError::Locked);
+    match state.is_locked().await {
+        false => Ok(next.run(req).await),
+        true => Err(ApiError::Locked),
     }
-
-    Ok(next.run(req).await)
 }
 
 pub async fn unlock(
-    State(mut state): State<AppState>,
-        TypedHeader(auth): TypedHeader<BoulderHeader>, 
+    State(state): State<DynDatabase>,
+    TypedHeader(auth): TypedHeader<BoulderHeader>,
 ) -> Result<impl IntoResponse, ApiError> {
-    if auth.key() != state.db.sealkey {
-        return Err(ApiError::Forbidden);
+    match state.unlock(auth.key()).await {
+        Ok(true) => Ok(StatusCode::OK),
+        Ok(false) => Err(ApiError::Forbidden),
+        Err(_e) => Err(ApiError::Forbidden),
     }
-
-    let mut state = state.db.lock.is_sealed.lock().await;
-    
-    *state = false;
-
-    Ok(StatusCode::OK)
 }

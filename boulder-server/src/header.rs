@@ -13,16 +13,14 @@ impl BoulderHeader {
 
 impl Header for BoulderHeader {
     fn name() -> &'static HeaderName {
-         CUSTOM_BOULDER_HEADER
+        CUSTOM_BOULDER_HEADER
     }
 
     fn decode<'i, I>(values: &mut I) -> Result<Self, axum::headers::Error>
     where
         I: Iterator<Item = &'i HeaderValue>,
     {
-        let value = values
-            .next()
-            .ok_or_else(axum::headers::Error::invalid)?;
+        let value = values.next().ok_or_else(axum::headers::Error::invalid)?;
 
         Ok(BoulderHeader(value.to_str().unwrap().to_owned()))
     }

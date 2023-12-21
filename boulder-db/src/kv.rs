@@ -1,15 +1,17 @@
+use nanoid::nanoid;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use nanoid::nanoid;
-use std::collections::{HashMap};
-use typenum::consts::U12;
+
+use crate::core::Database;
 use crate::errors::DatabaseError;
-use crate::core::{Database, User, Role};
+use crate::secrets::EncryptedSecret;
+use crate::users::{Role, User};
+
 use aes_gcm::{
-    aead::{Aead, AeadCore, KeyInit, OsRng},
+    aead::{Aead, KeyInit, OsRng},
     Aes256Gcm, // Or `Aes128Gcm`
     Key,
-    Nonce,
 };
 
 use crate::core::LockedStatus;
@@ -19,7 +21,7 @@ pub struct InMemoryDatabase {
     pub sealkey: String,
     pub key: Key<Aes256Gcm>,
     pub secrets: Arc<RwLock<HashMap<String, EncryptedSecret>>>,
-    pub users: Arc<RwLock<Vec<User>>>, 
+    pub users: Arc<RwLock<Vec<User>>>,
     pub lock: LockedStatus,
 }
 
@@ -30,9 +32,8 @@ impl Default for InMemoryDatabase {
 }
 
 impl InMemoryDatabase {
-
-    fn new() -> Self {
-        let sealkey = nanoid::nanoid!(20);
+    pub fn new() -> Self {
+        let _sealkey = nanoid::nanoid!(20);
         println!("Your root key is: 111");
         Self {
             sealkey: "111".to_string(),
@@ -46,7 +47,7 @@ impl InMemoryDatabase {
 
 #[async_trait::async_trait]
 impl Database for InMemoryDatabase {
-    async fn create_secret(self, key: String, value: String) -> Result<(), DatabaseError> {
+    async fn create_secret(&self, key: String, value: String) -> Result<(), DatabaseError> {
         let encrypted_secret = EncryptedSecret::new(self.key, key.clone(), value);
 
         let mut secrets = self.secrets.write().await;
@@ -54,20 +55,24 @@ impl Database for InMemoryDatabase {
         Ok(())
     }
 
-    async fn view_secret(self, user_roles: Vec<Role>, key: String) -> Result<String, DatabaseError> {
+    async fn view_all_secrets(&self, user_roles: Role ) -> Result<Vec<String>, DatabaseError> {
+        let store = self.secrets.read().await;
+
+        let retrieved_keys = store.keys().cloned().collect::<Vec<String>>();
+        
+        Ok(retrieved_keys)
+    }
+
+    async fn view_secret(&self, _user_roles: Role, key: String) -> Result<String, DatabaseError> {
         let store = self.secrets.read().await;
 
         let retrieved_key = match store.get(&*key) {
             Some(res) => res,
             None => return Err(DatabaseError::KeyNotFound),
         };
-//        if !user_roles.iter().any(|item| retrieved_key.role_whitelist.contains(item)) {
-//            return Err(DatabaseError::Forbidden);
-//        } 
 
         let key = Aes256Gcm::new(&self.key);
-        let plaintext = key
-            .decrypt(&retrieved_key.nonce, retrieved_key.ciphertext.as_ref())?;
+        let plaintext = key.decrypt(&retrieved_key.nonce, retrieved_key.ciphertext.as_ref())?;
 
         let hehe = std::str::from_utf8(&plaintext)?;
 
@@ -75,82 +80,78 @@ impl Database for InMemoryDatabase {
         Ok(meme)
     }
 
-    async fn view_users(self) -> Result<Vec<User>, DatabaseError> { 
+    async fn view_users(&self) -> Result<Vec<User>, DatabaseError> {
         let store = self.users.read().await;
 
-        Ok(store.to_vec()) 
-    } 
+        Ok(store.to_vec())
+    }
 
-    async fn get_user_from_password(self, password: String) -> Result<User, DatabaseError> {
+    async fn get_user_from_password(&self, password: String) -> Result<User, DatabaseError> {
         let store = self.users.read().await;
 
-        let user = match store.iter().find(|x| x.passkey == password) {
+        let user = match store.iter().find(|x| x.password == password) {
             Some(user) => user,
-            None => return Err(DatabaseError::UserNotFound) 
+            None => return Err(DatabaseError::UserNotFound),
         };
 
         Ok(user.clone())
     }
 
-    async fn get_roles_for_user(&self, name: String) -> Result<Vec<Role>, DatabaseError> {
-        let user = self.view_user_by_name(name).await.unwrap();
-
-        Ok(user.roles())
-    }
-    async fn view_user_by_name(&self, id: String) -> Result<User, DatabaseError> { 
+    async fn view_user_by_name(&self, id: String) -> Result<User, DatabaseError> {
         let store = self.users.read().await;
 
-        let user = store.clone().into_iter().find(|x| x.name == id);
+        let user = store.clone().into_iter().find(|x| x.username == id);
 
         if user.is_none() {
             return Err(DatabaseError::UserNotFound);
         }
 
-        Ok(user.unwrap()) 
-    } 
+        Ok(user.unwrap())
+    }
 
-    async fn create_user(self, name: String) -> Result<String, DatabaseError> {  
+    async fn create_user(&self, name: String) -> Result<String, DatabaseError> {
         let mut store = self.users.write().await;
-        
+
         let user = User {
-            name: name.clone(),
-            passkey: nanoid!(20),
-            roles: Vec::new(),
-            jwt: None,
-            jwt_expires: None
+            username: name.clone(),
+            password: nanoid!(20),
+            role: Role::Guest,
         };
-        let username_is_taken = store.iter().any(|x| x.name == user.name);
+        let username_is_taken = store.iter().any(|x| x.username == user.username);
         if !username_is_taken {
-        store.push(user.clone());
+            store.push(user.clone());
         } else {
             return Err(DatabaseError::UserAlreadyExists);
         }
 
-        Ok(user.passkey)
+        Ok(user.password)
     }
 
-    async fn delete_user(self, name: String) -> Result<(), DatabaseError> { 
+    async fn delete_user(&self, name: String) -> Result<(), DatabaseError> {
         let mut store = self.users.write().await;
-        
-        store.retain(|user| user.name == name);
+
+        store.retain(|user| user.username == name);
 
         Ok(())
     }
-}
 
-pub struct EncryptedSecret {
-    pub nonce: Nonce<U12>,
-    pub ciphertext: Vec<u8>,
-    pub role_whitelist: Vec<Role>
-}
+    async fn unlock(&self, key: String) -> Result<bool, DatabaseError> {
+        if key != self.sealkey {
+            return Err(DatabaseError::Forbidden);
+        }
 
-impl EncryptedSecret {
-    pub fn new(cipher_key: Key<Aes256Gcm>, _key: String, val: String) -> Self {
-        let cipher = Aes256Gcm::new(&cipher_key);
-    
-        let nonce = Aes256Gcm::generate_nonce(&mut OsRng); // 96-bits; unique per message
-        let ciphertext = cipher.encrypt(&nonce, val.as_ref()).unwrap();
+        let mut state = self.lock.is_sealed.lock().await;
 
-        Self { nonce, ciphertext, role_whitelist: Vec::new() }
+        *state = false;
+
+        Ok(true)
+    }
+    async fn is_locked(&self) -> bool {
+        let state = self.lock.is_sealed.lock().await;
+
+        *state
+    }
+    fn get_root_key(&self) -> String {
+        self.sealkey.clone()
     }
 }

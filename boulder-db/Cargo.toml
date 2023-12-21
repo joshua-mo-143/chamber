@@ -10,13 +10,12 @@ aes-gcm = { workspace = true }
 async-trait = "0.1.74"
 axum = { workspace = true, features = ["macros"] }
 chrono = { workspace = true }
+generic-array = { version = "0.14.7", features = ["zeroize"] }
 hyper = { workspace = true }
 nanoid = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-shuttle-axum = { workspace = true, optional = true }
-shuttle-runtime = { workspace = true, optional = true }
-sqlx = { version = "0.7.3", features = ["runtime-tokio-native-tls", "postgres", "macros"] }
+sqlx = { workspace = true }
 tokio = { workspace = true }
 tower = { workspace = true }
 tracing = { workspace = true }

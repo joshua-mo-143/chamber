@@ -10,39 +10,40 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     Secrets {
-    #[command(subcommand)]
-        cmd: SecretsCommands
+        #[command(subcommand)]
+        cmd: SecretsCommands,
     },
     Users {
-    #[command(subcommand)]
-        cmd: UserCommands
+        #[command(subcommand)]
+        cmd: UserCommands,
     },
     Website {
-    #[command(subcommand)]
-        cmd: WebsiteCommands
+        #[command(subcommand)]
+        cmd: WebsiteCommands,
     },
     Login {
-        api_key: Option<String>
+        api_key: Option<String>,
     },
 
     Unseal {
-        boulder_key: String
-    }
+        boulder_key: String,
+    },
 }
 
 #[derive(Subcommand)]
 pub enum UserCommands {
-    Create
+    Create,
 }
 
 #[derive(Subcommand)]
 pub enum SecretsCommands {
-        Get { key: String },
-        Set { key: String, value: String },
+    Get { key: String },
+    Set { key: String, value: String },
+    List
 }
 
 #[derive(Subcommand)]
 pub enum WebsiteCommands {
-        Get,
-        Set { value: String }
+    Get,
+    Set { value: String },
 }

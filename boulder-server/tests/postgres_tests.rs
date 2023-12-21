@@ -1,4 +1,4 @@
-use boulder_db::kv::InMemoryDatabase;
+use boulder_db::postgres::Postgres;
 use boulder_db::users::Role;
 use boulder_server::router::init_router;
 use boulder_server::state::DynDatabase;
@@ -19,7 +19,8 @@ mod tests {
 
     #[tokio::test]
     async fn hello_world() {
-        let state = Arc::new(InMemoryDatabase::new()) as DynDatabase;
+        let pool = common::postgres::get_test_db_connection().await; 
+        let state = Arc::new(Postgres::from_pool(pool)) as DynDatabase;
         let app = init_router(state);
 
         let response = app
@@ -35,7 +36,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn unseal_works() {
-        let state = Arc::new(InMemoryDatabase::new()) as DynDatabase;
+        let pool = common::postgres::get_test_db_connection().await; 
+        let state = Arc::new(Postgres::from_pool(pool)) as DynDatabase;
+
         let app = init_router(state.clone());
 
         let listener = TcpListener::bind("0.0.0.0:0".parse::<SocketAddr>().unwrap()).unwrap();
@@ -83,7 +86,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn create_user() {
-        let state = Arc::new(InMemoryDatabase::new()) as DynDatabase;
+        let pool = common::postgres::get_test_db_connection().await; 
+        let state = Arc::new(Postgres::from_pool(pool)) as DynDatabase;
+
         let app = init_router(state.clone());
 
         let listener = TcpListener::bind("0.0.0.0:0".parse::<SocketAddr>().unwrap()).unwrap();
@@ -102,7 +107,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn create_user_with_user_role() {
-        let state = Arc::new(InMemoryDatabase::new()) as DynDatabase;
+        let pool = common::postgres::get_test_db_connection().await; 
+        let state = Arc::new(Postgres::from_pool(pool)) as DynDatabase;
+
         let app = init_router(state.clone());
 
         let listener = TcpListener::bind("0.0.0.0:0".parse::<SocketAddr>().unwrap()).unwrap();
@@ -143,7 +150,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn create_user_with_editor_role() {
-        let state = Arc::new(InMemoryDatabase::new()) as DynDatabase;
+        let pool = common::postgres::get_test_db_connection().await; 
+        let state = Arc::new(Postgres::from_pool(pool)) as DynDatabase;
+
         let app = init_router(state.clone());
 
         let listener = TcpListener::bind("0.0.0.0:0".parse::<SocketAddr>().unwrap()).unwrap();
@@ -184,7 +193,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn create_user_with_almost_root_role() {
-        let state = Arc::new(InMemoryDatabase::new()) as DynDatabase;
+        let pool = common::postgres::get_test_db_connection().await; 
+        let state = Arc::new(Postgres::from_pool(pool)) as DynDatabase;
+
         let app = init_router(state.clone());
 
         let listener = TcpListener::bind("0.0.0.0:0".parse::<SocketAddr>().unwrap()).unwrap();
@@ -225,7 +236,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn create_user_with_root_role() {
-        let state = Arc::new(InMemoryDatabase::new()) as DynDatabase;
+        let pool = common::postgres::get_test_db_connection().await; 
+        let state = Arc::new(Postgres::from_pool(pool)) as DynDatabase;
+
         let app = init_router(state.clone());
 
         let listener = TcpListener::bind("0.0.0.0:0".parse::<SocketAddr>().unwrap()).unwrap();
@@ -266,7 +279,9 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn creating_a_secret_works() {
-        let state = Arc::new(InMemoryDatabase::new()) as DynDatabase;
+        let pool = common::postgres::get_test_db_connection().await; 
+        let state = Arc::new(Postgres::from_pool(pool)) as DynDatabase;
+
         let app = init_router(state.clone());
 
         let listener = TcpListener::bind("0.0.0.0:0".parse::<SocketAddr>().unwrap()).unwrap();

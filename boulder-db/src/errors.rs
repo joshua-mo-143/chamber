@@ -7,7 +7,7 @@ pub enum DatabaseError {
     RoleAlreadyExists,
     Forbidden,
     Utf8Error,
-    EncryptionError
+    EncryptionError,
 }
 
 impl From<std::str::Utf8Error> for DatabaseError {
@@ -28,9 +28,17 @@ impl std::fmt::Display for DatabaseError {
             Self::KeyNotFound => write!(f, "Key wasn't found"),
             Self::UserNotFound => write!(f, "User wasn't found"),
             Self::UserAlreadyExists => write!(f, "User already exists"),
-            Self::RoleNotFound => write!(f, "Attempted to delete a role that wasn't found for a given user"),
-            Self::RoleAlreadyExists => write!(f, "Attempted to add role that already existed for user"),
-            Self::Forbidden => write!(f, "User attempted to access a key that they don't have access to"),
+            Self::RoleNotFound => write!(
+                f,
+                "Attempted to delete a role that wasn't found for a given user"
+            ),
+            Self::RoleAlreadyExists => {
+                write!(f, "Attempted to add role that already existed for user")
+            }
+            Self::Forbidden => write!(
+                f,
+                "User attempted to access a key that they don't have access to"
+            ),
             Self::Utf8Error => write!(f, "Error while trying to convert bytes to UTF8 string"),
             Self::EncryptionError => write!(f, "Error while trying to encrypt or decrypt a value"),
         }

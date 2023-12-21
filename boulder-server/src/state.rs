@@ -1,20 +1,4 @@
-use boulder_db::{kv::InMemoryDatabase, core::Database};
+use boulder_db::core::Database;
+use std::sync::Arc;
 
-#[derive(Clone)]
-pub struct AppState {
-    pub db: InMemoryDatabase,
-}
-
-impl AppState {
-    pub fn new() -> Self {
-        Self {
-            db: InMemoryDatabase::new(),
-        }
-    }
-}
-
-impl Default for AppState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+pub type DynDatabase = Arc<dyn Database  + Send + Sync + 'static>;

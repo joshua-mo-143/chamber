@@ -1,47 +1,45 @@
 use axum::{
     async_trait,
-    extract::{FromRequestParts, TypedHeader, State},
+    extract::{FromRequestParts, State, TypedHeader},
     headers::{authorization::Bearer, Authorization},
     http::{request::Parts, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post},
-    Json, RequestPartsExt, Router,
+    Json, RequestPartsExt,
 };
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::{fmt::Display, net::SocketAddr};
+use std::fmt::Display;
 
-use boulder_db::core::{Database, Role};
-use crate::state::AppState;
+use crate::state::DynDatabase;
 
 static KEYS: Lazy<Keys> = Lazy::new(|| {
-    let secret = String::from("Hello world!"); 
-        Keys::new(secret.as_bytes())
+    let secret = String::from("Hello world!");
+    Keys::new(secret.as_bytes())
 });
 
 #[derive(Deserialize)]
 pub struct UserLoginParams {
-    password: String
+    password: String,
 }
 
 pub async fn login(
-    State(state): State<AppState>,
-    Json(user): Json<UserLoginParams>
-    ) -> Result<(StatusCode, Json<AuthBody>), AuthError> {
+    State(state): State<DynDatabase>,
+    Json(user): Json<UserLoginParams>,
+) -> Result<(StatusCode, Json<AuthBody>), AuthError> {
     // Check if the user sent the credentials
     if user.password.is_empty() {
         return Err(AuthError::MissingCredentials);
     }
     // Here you can check the user credentials from a database
-    let res = match state.db.get_user_from_password(user.password).await {
+    let res = match state.get_user_from_password(user.password).await {
         Ok(res) => res,
-        Err(_) => return Err(AuthError::WrongCredentials) 
+        Err(_) => return Err(AuthError::WrongCredentials),
     };
 
     let claims = Claims {
-        sub: res.name.to_owned(),
+        sub: res.username.to_owned(),
         // Mandatory expiry time as UTC timestamp
         exp: 2000000000, // May 2033
     };
@@ -55,7 +53,7 @@ pub async fn login(
 
 impl Display for Claims {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Name: {}", self.sub )
+        write!(f, "Name: {}", self.sub)
     }
 }
 
@@ -126,8 +124,8 @@ pub struct Claims {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthBody {
-pub    access_token: String,
-pub    token_type: String,
+    pub access_token: String,
+    pub token_type: String,
 }
 
 #[derive(Debug)]

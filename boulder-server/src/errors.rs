@@ -16,13 +16,10 @@ impl IntoResponse for ApiError {
             Self::Unauthorised => {
                 (StatusCode::UNAUTHORIZED, "Unauthorised!".to_string()).into_response()
             }
-            Self::Locked => (
-                StatusCode::LOCKED,
-                "The vault is locked!".to_string(),
-            ).into_response(),
-            Self::DBError(e) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
+            Self::Locked => {
+                (StatusCode::LOCKED, "The vault is locked!".to_string()).into_response()
             }
+            Self::DBError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
         }
     }
 }
