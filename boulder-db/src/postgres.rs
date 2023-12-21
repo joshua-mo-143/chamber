@@ -1,6 +1,6 @@
 use crate::core::Database;
 use crate::errors::DatabaseError;
-use crate::secrets::{EncryptedSecret, EncryptedSecretPG};
+use crate::secrets::{EncryptedSecret};
 use crate::users::{Role, User};
 use aes_gcm::{
     aead::{Aead, KeyInit, OsRng},
@@ -37,8 +37,6 @@ impl Database for Postgres {
     async fn create_secret(&self, key: String, value: String) -> Result<(), DatabaseError> {
         let encrypted_secret = EncryptedSecret::new(self.key, key.clone(), value);
 
-        let espg = EncryptedSecretPG::from(encrypted_secret);
-
         // you might need to convert to Vec<u8> here for the Nonce
         sqlx::query(
             "INSERT INTO SECRETS 
@@ -47,8 +45,8 @@ impl Database for Postgres {
                     ($1, $2, $3)",
         )
         .bind(key)
-        .bind(espg.nonce)
-        .bind(espg.ciphertext)
+        .bind(encrypted_secret.nonce_as_u8())
+        .bind(encrypted_secret.ciphertext)
         .execute(&self.pool)
         .await
         .unwrap();
@@ -56,7 +54,7 @@ impl Database for Postgres {
         Ok(())
     }
 
-    async fn view_all_secrets(&self, user_roles: Role) -> Result<Vec<String>, DatabaseError> {
+    async fn view_all_secrets(&self, _user_roles: Role) -> Result<Vec<String>, DatabaseError> {
         let retrieved_keys = sqlx::query_as::<_, SingleValue>(
             "SELECT key FROM secrets",
         )
@@ -71,7 +69,7 @@ impl Database for Postgres {
     }
     async fn view_secret(&self, _user_roles: Role, key: String) -> Result<String, DatabaseError> {
         // Might need to convert back from Vec<u8> to Nonce<U12>
-        let retrieved_key = sqlx::query_as::<_, EncryptedSecretPG>(
+        let retrieved_key = sqlx::query_as::<_, EncryptedSecret>(
             "SELECT nonce, ciphertext FROM secrets WHERE key = $1",
         )
         .bind(key)
@@ -79,10 +77,8 @@ impl Database for Postgres {
         .await
         .unwrap();
 
-        let retrieved_key = EncryptedSecret::from(retrieved_key);
-
         let key = Aes256Gcm::new(&self.key);
-        let plaintext = key.decrypt(&retrieved_key.nonce, retrieved_key.ciphertext.as_ref())?;
+        let plaintext = key.decrypt(&retrieved_key.nonce(), retrieved_key.ciphertext.as_ref())?;
 
         let hehe = std::str::from_utf8(&plaintext)?;
 
