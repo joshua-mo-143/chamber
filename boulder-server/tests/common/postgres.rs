@@ -1,5 +1,5 @@
-use testcontainers::{clients, RunnableImage};
-use testcontainers_modules::postgres::Postgres as PostgresImage;
+
+
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use sqlx::Executor;
 use boulder_db::postgres::MIGRATIONS;

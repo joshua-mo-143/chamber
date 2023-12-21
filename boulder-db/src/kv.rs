@@ -55,7 +55,7 @@ impl Database for InMemoryDatabase {
         Ok(())
     }
 
-    async fn view_all_secrets(&self, user_roles: Role ) -> Result<Vec<String>, DatabaseError> {
+    async fn view_all_secrets(&self, _user_roles: Role ) -> Result<Vec<String>, DatabaseError> {
         let store = self.secrets.read().await;
 
         let retrieved_keys = store.keys().cloned().collect::<Vec<String>>();
@@ -72,7 +72,7 @@ impl Database for InMemoryDatabase {
         };
 
         let key = Aes256Gcm::new(&self.key);
-        let plaintext = key.decrypt(&retrieved_key.nonce, retrieved_key.ciphertext.as_ref())?;
+        let plaintext = key.decrypt(&retrieved_key.nonce(), retrieved_key.ciphertext.as_ref())?;
 
         let hehe = std::str::from_utf8(&plaintext)?;
 

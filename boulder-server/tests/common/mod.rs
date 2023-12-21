@@ -3,12 +3,9 @@ use axum::{
     body::{Body, HttpBody},
     http::{self, Request, StatusCode},
 };
-use axum::{
-    routing::{get, post},
-    Router,
-};
+
 use boulder_db::users::Role;
-use boulder_server::secrets;
+
 use nanoid::nanoid;
 use serde_json::Value;
 use std::net::SocketAddr;
