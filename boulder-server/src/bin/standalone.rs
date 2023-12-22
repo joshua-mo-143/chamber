@@ -1,4 +1,4 @@
-use boulder_db::kv::InMemoryDatabase;
+use boulder_core::kv::InMemoryDatabase;
 use boulder_server::router::init_router;
 use boulder_server::state::DynDatabase;
 use std::net::SocketAddr;

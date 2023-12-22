@@ -10,7 +10,7 @@ use serde::Deserialize;
 use crate::auth::Claims;
 use crate::errors::ApiError;
 use crate::state::DynDatabase;
-use boulder_db::users::Role;
+use boulder_core::users::Role;
 
 use crate::header::BoulderHeader;
 
@@ -28,6 +28,16 @@ pub async fn create_secret(
     db.create_secret(key, value).await.unwrap();
 
     Ok(StatusCode::CREATED)
+}
+
+pub async fn delete_secret(
+    State(db): State<DynDatabase>,
+    _claim: Claims,
+    Json(Secret { key, value }): Json<Secret>,
+) -> Result<impl IntoResponse, ApiError> {
+    db.delete_secret(key).await?;
+
+    Ok(StatusCode::OK)
 }
 
 #[derive(Deserialize)]

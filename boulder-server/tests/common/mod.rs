@@ -1,11 +1,8 @@
-
 use axum::{
     body::{Body, HttpBody},
     http::{self, Request, StatusCode},
 };
-
-use boulder_db::users::Role;
-
+use boulder_core::users::Role;
 use nanoid::nanoid;
 use serde_json::Value;
 use std::net::SocketAddr;

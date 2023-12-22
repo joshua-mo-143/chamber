@@ -1,5 +1,5 @@
-use boulder_db::postgres::Postgres;
-use boulder_db::users::Role;
+use boulder_core::postgres::Postgres;
+use boulder_core::users::Role;
 use boulder_server::router::init_router;
 use boulder_server::state::DynDatabase;
 mod common;

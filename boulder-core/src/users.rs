@@ -40,3 +40,15 @@ pub enum Role {
     AlmostRoot,
     Root,
 }
+
+impl Role {
+    pub fn power_level(&self) -> u32 {
+        match self {
+            Self::Guest => 1,
+            Self::User => 2,
+            Self::Editor => 3,
+            Self::AlmostRoot => 4,
+            Self::Root => 5,
+        }
+    }
+}

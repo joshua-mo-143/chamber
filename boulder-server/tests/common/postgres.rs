@@ -1,8 +1,6 @@
-
-
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use sqlx::Executor;
-use boulder_db::postgres::MIGRATIONS;
+use boulder_core::postgres::MIGRATIONS;
 
 pub async fn get_test_db_connection() -> PgPool {
         let pool = PgPoolOptions::new()

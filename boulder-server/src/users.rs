@@ -4,7 +4,7 @@ use serde::Deserialize;
 use crate::errors::ApiError;
 use crate::header::BoulderHeader;
 use crate::state::DynDatabase;
-use boulder_db::users::Role;
+use boulder_core::users::Role;
 
 #[derive(Deserialize)]
 pub struct UserParams {

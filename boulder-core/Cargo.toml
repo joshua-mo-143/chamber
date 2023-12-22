@@ -1,5 +1,5 @@
 [package]
-name = "boulder_db"
+name = "boulder-core"
 version = "0.0.1"
 edition = "2021"
 
@@ -9,8 +9,8 @@ edition = "2021"
 aes-gcm = { workspace = true }
 async-trait = "0.1.74"
 axum = { workspace = true, features = ["macros"] }
+generic-array = { workspace = true }
 chrono = { workspace = true }
-generic-array = { version = "0.14.7", features = ["zeroize"] }
 hyper = { workspace = true }
 nanoid = { workspace = true }
 serde = { workspace = true }
@@ -21,3 +21,4 @@ tower = { workspace = true }
 tracing = { workspace = true }
 typenum = { workspace = true }
 zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
+serde_bytes = "0.11.12"

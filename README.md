@@ -2,6 +2,12 @@
 
 Do you have NIH syndrome? Me too, which is why I made this web service so I can stop paying £2.99 a month for 1Password.
 
+## How Boulder works
+There are several moving parts to Boulder:
+- A web server that has can be unlocked and locked as required
+- A command-line interface that serves as the current primary way to interact with a Boulder server
+- The core (which holds methods for storing data, encryption and decryption, and other misc things)
+
 ## Deployment
 Currently boulder only supports deployment through Shuttle, but Dockerfile deployments should be getting added shortly.
 
@@ -12,7 +18,7 @@ Currently boulder only supports deployment through Shuttle, but Dockerfile deplo
 	- Create users and assign them roles. Lock credential usability either by role or by username.
 	- Users can only grab credentials by either using the API with the custom header or the CLI, and must log in through the CLI first to be able to get a key.
 - Entirely self sufficient - no database required!
-	- An in-memory database is currently being used but file storage is on the roadmap, because you shouldn't hate yourself.
+	- An in-memory database is currently implemented but a file storage implementation is on the roadmap, because nobody hates themselves enough to use a fully in-memory only implementation of a credentials manager... right? Right.
 	- However, Postgres is aimed to be supported because everyone and their mom can get one these days and they are pretty cheap. Plus, persistent external storage is pretty good.
 
 ## Roadmap for v0.1.0
@@ -21,7 +27,10 @@ Currently boulder only supports deployment through Shuttle, but Dockerfile deplo
 	- [x] Unseal
 	- [x] Sign in
 	- [x] Create/delete users 
-	- [x] Set/get/remove secrets
+	- [x] Set/get secrets
+	- [ ] Remove secrets
+	- [ ] Table output
+	- [ ] Generate a pre-made crypto key to use in web service
 - [x] Web service
 	- [x] JWT auth
 	- [x] Unsealing route
@@ -32,13 +41,13 @@ Currently boulder only supports deployment through Shuttle, but Dockerfile deplo
 	- [x] Seal/unseal using API key
 	- [x] Basic IAM system
 	- [ ] Secrets grouping
-- [ ] Postgres database
-	- [ ] AES-256-GCM en/decryption
-	- [ ] Seal/unseal using API key
-	- [ ] Basic IAM system
+- [x] Postgres database
+	- [x] AES-256-GCM en/decryption
+	- [x] Seal/unseal using API key
+	- [x] Basic IAM system
 	- [ ] Secrets grouping
 
-## Project Layout
-- boulder-cli: The CLI.
-- boulder-server: The web server.
-- boulder-db: The in-memory database implementation.
+## Long(er) Term Roadmap
+- Logging/tracing
+- SDK
+- Github Actions for retrieving secrets from a Boulder instance

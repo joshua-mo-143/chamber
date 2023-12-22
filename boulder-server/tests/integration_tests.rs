@@ -1,5 +1,5 @@
-use boulder_db::kv::InMemoryDatabase;
-use boulder_db::users::Role;
+use boulder_core::kv::InMemoryDatabase;
+use boulder_core::users::Role;
 use boulder_server::router::init_router;
 use boulder_server::state::DynDatabase;
 mod common;

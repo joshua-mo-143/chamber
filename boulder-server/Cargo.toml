@@ -26,7 +26,7 @@ tower = { workspace = true }
 tracing = { workspace = true }
 typenum = { workspace = true }
 sqlx = { workspace = true }
-boulder_db = { path = "../boulder-db" }
+boulder-core = { path = "../boulder-core" }
 headers = "0.4.0"
 once_cell = "1.19.0"
 jsonwebtoken = "9.2.0"

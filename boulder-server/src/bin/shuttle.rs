@@ -1,4 +1,4 @@
-use boulder_db::postgres::Postgres;
+use boulder_core::postgres::Postgres;
 use boulder_server::router::init_router;
 use boulder_server::state::DynDatabase;
 use sqlx::PgPool;

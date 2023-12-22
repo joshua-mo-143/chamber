@@ -48,8 +48,7 @@ impl Database for Postgres {
         .bind(encrypted_secret.nonce_as_u8())
         .bind(encrypted_secret.ciphertext)
         .execute(&self.pool)
-        .await
-        .unwrap();
+        .await?;
 
         Ok(())
     }
@@ -59,8 +58,7 @@ impl Database for Postgres {
             "SELECT key FROM secrets",
         )
         .fetch_all(&self.pool)
-        .await
-        .unwrap();
+        .await?;
 
         let string_vec = retrieved_keys.into_iter().map(|x| x.0).collect::<Vec<String>>();
 
@@ -74,8 +72,7 @@ impl Database for Postgres {
         )
         .bind(key)
         .fetch_one(&self.pool)
-        .await
-        .unwrap();
+        .await?;
 
         let key = Aes256Gcm::new(&self.key);
         let plaintext = key.decrypt(&retrieved_key.nonce(), retrieved_key.ciphertext.as_ref())?;
@@ -85,12 +82,18 @@ impl Database for Postgres {
         let meme = String::from(hehe);
         Ok(meme)
     }
+    async fn delete_secret(&self, key: String) -> Result<(), DatabaseError> {
+        sqlx::query("DELETE FROM secrets WHERE key = $1")
+            .bind(key)
+            .execute(&self.pool)
+            .await?;
 
+        Ok(())
+    }
     async fn view_users(&self) -> Result<Vec<User>, DatabaseError> {
         let query = sqlx::query_as::<_, User>("SELECT * FROM USERS")
             .fetch_all(&self.pool)
-            .await
-            .unwrap();
+            .await?;
 
         Ok(query)
     }
@@ -99,8 +102,7 @@ impl Database for Postgres {
         let query = sqlx::query_as::<_, User>("SELECT * FROM USERS WHERE ID = $1")
             .bind(id)
             .fetch_one(&self.pool)
-            .await
-            .unwrap();
+            .await?;
 
         Ok(query)
     }
@@ -108,8 +110,7 @@ impl Database for Postgres {
         let query = sqlx::query_as::<_, User>("SELECT username, password, role FROM USERS WHERE PASSWORD = $1")
             .bind(password)
             .fetch_one(&self.pool)
-            .await
-            .unwrap();
+            .await?;
 
         Ok(query)
     }
@@ -124,8 +125,7 @@ impl Database for Postgres {
         .bind(name)
         .bind(password)
         .fetch_one(&self.pool)
-        .await
-        .unwrap();
+        .await?;
 
         Ok(query.0)
     }
@@ -133,8 +133,7 @@ impl Database for Postgres {
         sqlx::query("DELETE FROM USERS WHERE USERNAME = $1")
             .bind(name)
             .execute(&self.pool)
-            .await
-            .unwrap();
+            .await?;
 
         Ok(())
     }

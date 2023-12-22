@@ -55,6 +55,13 @@ impl Database for InMemoryDatabase {
         Ok(())
     }
 
+    async fn delete_secret(&self, key: String) -> Result<(), DatabaseError> {
+        let mut secrets = self.secrets.write().await;
+
+        secrets.remove(&key);
+
+        Ok(())
+    } 
     async fn view_all_secrets(&self, _user_roles: Role ) -> Result<Vec<String>, DatabaseError> {
         let store = self.secrets.read().await;
 
@@ -74,10 +81,10 @@ impl Database for InMemoryDatabase {
         let key = Aes256Gcm::new(&self.key);
         let plaintext = key.decrypt(&retrieved_key.nonce(), retrieved_key.ciphertext.as_ref())?;
 
-        let hehe = std::str::from_utf8(&plaintext)?;
+        let string_from_utf8 = std::str::from_utf8(&plaintext)?;
 
-        let meme = String::from(hehe);
-        Ok(meme)
+        let string = String::from(string_from_utf8);
+        Ok(string)
     }
 
     async fn view_users(&self) -> Result<Vec<User>, DatabaseError> {
