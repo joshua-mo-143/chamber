@@ -1,5 +1,5 @@
 use crate::errors::DatabaseError;
-use crate::secrets::{EncryptedSecret, SecretInfo};
+use crate::secrets::{EncryptedSecret, SecretInfo, KeyFile};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -43,6 +43,12 @@ pub trait Database {
     async fn unlock(&self, key: String) -> Result<bool, DatabaseError>;
     async fn is_locked(&self) -> bool;
     fn get_root_key(&self) -> String;
+    fn get_key_data(&self) -> KeyFile {
+            let file = std::fs::read("boulder.bin").unwrap();
+            let keyfile: KeyFile = bincode::deserialize(&file).unwrap();
+
+            keyfile
+    }
 }
 
 #[derive(Clone)]

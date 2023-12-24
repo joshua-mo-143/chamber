@@ -16,7 +16,7 @@ path = "src/bin/standalone.rs"
 
 [dependencies]
 aes-gcm = "0.10.3"
-axum = { version = "0.6.20", features = ["headers"] }
+axum = { version = "0.6.20", features = ["headers", "multipart"] }
 bincode = "1.3.3"
 chrono = { version = "0.4.31", features = ["clock", "serde"] }
 hyper = { version = "0.14", features = ["full"] }

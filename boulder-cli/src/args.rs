@@ -31,6 +31,7 @@ pub enum Commands {
     Keygen(KeygenArgs),
     /// Unseal your Boulder instance.
     Unseal { boulder_key: String },
+    Reset
 }
 
 #[derive(Parser, Clone)]

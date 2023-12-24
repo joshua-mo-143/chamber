@@ -30,6 +30,7 @@ pub fn init_router(state: DynDatabase) -> Router {
         )
         .nest("/users", user_router)
         .route("/login", post(auth::login))
+        .route("/binfile", post(secrets::upload_binfile))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             secrets::check_locked,

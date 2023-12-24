@@ -262,6 +262,30 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
                 }
             }
         }
+        Commands::Reset => {
+            let ctx = reqwest::blocking::Client::new();
+
+            let website = match cfg.to_owned().website() {
+                Some(res) => format!("{res}/binfile"),
+                None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+            };
+
+            let file = std::fs::File::open("boulder.bin")?;
+
+            let res = ctx
+                .post(website)
+                .header("Content-Type", "multipart/form-data")
+                .body(file)
+                .send()?;
+
+            match res.status() {
+                StatusCode::OK => println!("The database has been reset!"),
+                _ => {
+                    println!("{}", res.text()?);
+                }
+            }
+            
+        }
     }
 
     Ok(())

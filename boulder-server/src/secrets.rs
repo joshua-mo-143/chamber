@@ -4,7 +4,9 @@ use axum::{
     middleware::Next,
     response::IntoResponse,
     Json, TypedHeader,
+    extract::Multipart
 };
+
 use serde::Deserialize;
 
 
@@ -98,6 +100,18 @@ pub async fn check_locked<B>(
         false => Ok(next.run(req).await),
         true => Err(ApiError::Locked),
     }
+}
+
+pub async fn upload_binfile(
+    mut multipart: Multipart
+    ) -> Result<impl IntoResponse, ApiError> {
+    while let Some(field) = multipart.next_field().await.unwrap() {
+        let data = field.bytes().await.unwrap();
+
+        std::fs::write("boulder.bin", data).unwrap();
+    }  
+    
+    Ok(StatusCode::OK)
 }
 
 pub async fn unlock(

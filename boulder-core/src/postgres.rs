@@ -1,16 +1,12 @@
 use crate::core::Database;
 use crate::errors::DatabaseError;
-use crate::secrets::{EncryptedSecret, KeyFile, Secret};
+use crate::secrets::{EncryptedSecret, Secret};
 use crate::users::User;
 use aes_gcm::{
-    aead::{Aead, KeyInit, OsRng},
-    Aes256Gcm, // Or `Aes128Gcm`
-    Key,
+    aead::{Aead, KeyInit},
+    Aes256Gcm,
 };
 use nanoid::nanoid;
-
-
-
 use crate::core::CreateSecretParams;
 use sqlx::PgPool;
 
@@ -19,8 +15,6 @@ use crate::secrets::SecretInfo;
 
 #[derive(Clone)]
 pub struct Postgres {
-    pub sealkey: String,
-    pub key: Key<Aes256Gcm>,
     pub pool: PgPool,
     pub lock: LockedStatus,
 }
@@ -28,24 +22,18 @@ pub struct Postgres {
 impl Postgres {
     pub fn from_pool(pool: PgPool) -> Self {
         Self {
-            sealkey: String::new(),
-            key: Aes256Gcm::generate_key(OsRng),
             pool,
             lock: LockedStatus::default(),
         }
-    }
-    pub fn with_cfg_file(mut self, key: KeyFile) -> Self {
-        self.sealkey = key.clone().unseal_key();
-        self.key = key.crypto_key();
-        self
     }
 }
 
 #[async_trait::async_trait]
 impl Database for Postgres {
     async fn create_secret(&self, secret: CreateSecretParams) -> Result<(), DatabaseError> {
+        let keyfile = self.get_key_data();
 
-        let mut new_secret = EncryptedSecret::new(self.key, secret.key, secret.value);
+        let mut new_secret = EncryptedSecret::new(keyfile.crypto_key(), secret.key, secret.value);
         new_secret.set_access_level(secret.access_level);
         new_secret.clone().add_tags(secret.tags);
         new_secret.set_role_whitelist(secret.role_whitelist);
@@ -140,7 +128,8 @@ impl Database for Postgres {
         .fetch_one(&self.pool)
         .await?;
 
-        let key = Aes256Gcm::new(&self.key);
+        let keyfile = self.get_key_data();
+        let key = Aes256Gcm::new(&keyfile.crypto_key());
         let plaintext = key.decrypt(&retrieved_key.nonce.0, retrieved_key.ciphertext.as_ref())?;
 
         let text_str = std::str::from_utf8(&plaintext)?;
@@ -231,8 +220,9 @@ impl Database for Postgres {
     }
 
     async fn unlock(&self, key: String) -> Result<bool, DatabaseError> {
+        let keyfile = self.get_key_data();
 
-        if key != self.sealkey {
+        if key != keyfile.unseal_key() {
             return Err(DatabaseError::Forbidden);
         }
 
@@ -249,7 +239,9 @@ impl Database for Postgres {
     }
 
     fn get_root_key(&self) -> String {
-        self.sealkey.clone()
+        let keyfile = self.get_key_data();
+
+        keyfile.unseal_key()
     }
 }
 
