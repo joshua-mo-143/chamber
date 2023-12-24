@@ -1,11 +1,11 @@
-create type role as enum ('guest', 'user', 'editor', 'almostroot', 'root');
-
 -- Add migration script here
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR NOT NULL,
     password VARCHAR NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+	access_level INT not null DEFAULT 0,
+	roles VARCHAR[] NOT NULL DEFAULT array[]::varchar[]
+created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS secrets (
@@ -13,5 +13,7 @@ CREATE TABLE IF NOT EXISTS secrets (
     key VARCHAR NOT NULL UNIQUE,
     nonce BYTEA NOT NULL UNIQUE,
     ciphertext BYTEA NOT NULL UNIQUE,
+	access_level INT NOT NULL DEFAULT 0,
+	role_whitelist VARCHAR[] not null DEFAULT array[]::varchar[],
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

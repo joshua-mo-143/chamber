@@ -1,10 +1,10 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json, TypedHeader};
 use serde::Deserialize;
 
+use boulder_core::users::User;
 use crate::errors::ApiError;
 use crate::header::BoulderHeader;
 use crate::state::DynDatabase;
-use boulder_core::users::Role;
 
 #[derive(Deserialize)]
 pub struct UserParams {
@@ -14,7 +14,7 @@ pub struct UserParams {
 #[derive(Deserialize)]
 pub struct UserRoleParams {
     name: String,
-    role: Role,
+    role: String,
 }
 
 pub async fn create_user(
@@ -41,12 +41,10 @@ pub async fn view_user_roles(
     State(state): State<DynDatabase>,
     TypedHeader(_auth): TypedHeader<BoulderHeader>,
     Json(UserParams { name }): Json<UserParams>,
-) -> Result<Json<Role>, ApiError> {
+) -> Result<Json<User>, ApiError> {
     let res = state.view_user_by_name(name).await?;
 
-    let role = res.role();
-
-    Ok(Json(role))
+    Ok(Json(res))
 }
 
 pub async fn grant_user_role(

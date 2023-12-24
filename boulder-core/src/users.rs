@@ -1,54 +1,54 @@
 use crate::errors::DatabaseError;
-use serde::{Deserialize, Serialize};
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use serde::{Serialize};
 
-#[derive(Clone, sqlx::FromRow)]
+#[derive(Clone, sqlx::FromRow, Serialize)]
 pub struct User {
     pub username: String,
+    #[sqlx(skip)]
     pub password: String,
-    pub role: Role,
+    access_level: i32,
+    roles: Vec<String>
 }
 
 impl User {
-    pub fn role(&self) -> Role {
-        self.role.clone()
+    pub fn new(username: String, password: Option<String>) -> Self {
+        let password = match password {
+            Some(password) => password,
+            None => nanoid::nanoid!(20)
+        };
+
+        Self {
+        username,
+        password,
+        access_level: 0,
+        roles: Vec::new()
+        }
     }
 
-    pub fn grant_user_role(mut self, role: Role) -> Result<(), DatabaseError> {
-        if self.role == role {
+    pub fn access_level(&self) -> i32 {
+        self.access_level
+    }
+
+    pub fn set_access_level(mut self, access_level: i32) {
+        self.access_level = access_level;
+    }
+
+    pub fn roles(self) -> Vec<String> {
+        self.roles
+    }
+
+    pub fn grant_user_role(mut self, role: String) -> Result<(), DatabaseError> {
+        if self.roles.contains(&role) {
             return Err(DatabaseError::RoleAlreadyExists);
         }
 
-        self.role = role;
+        self.roles.push(role);
         Ok(())
     }
 
-    pub fn revoke_user_role(mut self, _role: Role) -> Result<(), DatabaseError> {
-        self.role = Role::Guest;
+    pub fn revoke_user_role(mut self, role: String) -> Result<(), DatabaseError> {
+        self.roles.retain(|x| x != &role);
 
         Ok(())
-    }
-}
-
-#[derive(Clone, Zeroize, ZeroizeOnDrop, Serialize, Deserialize, PartialEq, Debug, sqlx::Type)]
-#[sqlx(type_name = "role")]
-#[sqlx(rename_all = "lowercase")]
-pub enum Role {
-    Guest,
-    User,
-    Editor,
-    AlmostRoot,
-    Root,
-}
-
-impl Role {
-    pub fn power_level(&self) -> u32 {
-        match self {
-            Self::Guest => 1,
-            Self::User => 2,
-            Self::Editor => 3,
-            Self::AlmostRoot => 4,
-            Self::Root => 5,
-        }
     }
 }

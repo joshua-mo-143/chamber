@@ -1,12 +1,11 @@
-use nanoid::nanoid;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::core::Database;
 use crate::errors::DatabaseError;
-use crate::secrets::EncryptedSecret;
-use crate::users::{Role, User};
+use crate::secrets::{EncryptedSecret, SecretInfo};
+use crate::users::User;
 
 use aes_gcm::{
     aead::{Aead, KeyInit, OsRng},
@@ -62,15 +61,34 @@ impl Database for InMemoryDatabase {
 
         Ok(())
     } 
-    async fn view_all_secrets(&self, _user_roles: Role ) -> Result<Vec<String>, DatabaseError> {
+    async fn view_all_secrets(&self, _role: User, _tag: Option<String>) -> Result<Vec<SecretInfo>, DatabaseError> {
         let store = self.secrets.read().await;
 
-        let retrieved_keys = store.keys().cloned().collect::<Vec<String>>();
+        let retrieved_keys: Vec<SecretInfo> = store.iter().map(|(k, v)| SecretInfo::from_encrypted(v.clone(), k.to_owned())).collect(); 
         
         Ok(retrieved_keys)
     }
 
-    async fn view_secret(&self, _user_roles: Role, key: String) -> Result<String, DatabaseError> {
+    async fn view_secret(&self, _user_role: User, key: String) -> Result<EncryptedSecret, DatabaseError> {
+        let store = self.secrets.read().await;
+
+        let retrieved_key = match store.get(&*key) {
+            Some(res) => res,
+            None => return Err(DatabaseError::KeyNotFound),
+        };
+
+        Ok(retrieved_key.clone())
+    }
+
+    async fn update_secret(&self, key: String, secret: EncryptedSecret) -> Result<(), DatabaseError> {
+        let mut store = self.secrets.write().await;
+
+        store.insert(key, secret);
+
+        Ok(())
+    }
+
+    async fn view_secret_decrypted(&self, _user_roles: User, key: String) -> Result<String, DatabaseError> {
         let store = self.secrets.read().await;
 
         let retrieved_key = match store.get(&*key) {
@@ -119,11 +137,8 @@ impl Database for InMemoryDatabase {
     async fn create_user(&self, name: String) -> Result<String, DatabaseError> {
         let mut store = self.users.write().await;
 
-        let user = User {
-            username: name.clone(),
-            password: nanoid!(20),
-            role: Role::Guest,
-        };
+        let user = User::new(name.clone(), None);
+
         let username_is_taken = store.iter().any(|x| x.username == user.username);
         if !username_is_taken {
             store.push(user.clone());

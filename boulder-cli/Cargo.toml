@@ -20,3 +20,4 @@ aes-gcm = { workspace = true }
 generic-array = { workspace = true }
 nanoid = { workspace = true }
 typenum = { workspace = true }
+comfy-table = "7.1.0"

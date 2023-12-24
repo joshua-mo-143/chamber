@@ -1,5 +1,6 @@
 use boulder_server::auth::AuthBody;
-
+use comfy_table::Table;
+use boulder_core::secrets::SecretInfo;
 use inquire::Text;
 use reqwest::StatusCode;
 
@@ -65,7 +66,34 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
                     }
                 }
             }
-            SecretsCommands::List => {
+            SecretsCommands::Update { key, tags } => {
+                let Some(jwt) = cfg.clone().jwt_key() else {
+                    panic!("You need to log in before you can do that!"); 
+                };
+
+                let website = match cfg.website() {
+                    Some(res) => format!("{res}/secrets"),
+                    None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+                };
+
+                let ctx = reqwest::blocking::Client::new();
+
+                let res = ctx
+                    .put(website)
+                    .header("Authorization", jwt)
+                    .json(&serde_json::json!({
+                        "key": key,
+                        "update_data": tags
+                    }))
+                    .send()?;
+
+                    match res.status() {
+                        StatusCode::OK => println!("Meme"),
+                        _ => println!("Not OK!") 
+                    }
+
+            }
+            SecretsCommands::List(args) => {
                 let Some(jwt) = cfg.clone().jwt_key() else {
                     panic!("You need to log in before you can do that!"); 
                 };
@@ -80,11 +108,16 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
                 let res = ctx
                     .post(website)
                     .header("Authorization", jwt)
+                    .json(&serde_json::json!({
+                        "tag_filter": args.tag 
+                    }))
                     .send()?;
 
-                let body = res.json::<Vec<String>>()?;
+                let json = res.json::<Vec<SecretInfo>>().unwrap();
 
-                println!("{body:?}");
+                let table = secrets_table(json);
+
+                println!("{table}");
 
             }
             SecretsCommands::Rm { key } => {
@@ -212,4 +245,18 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
 Ok(())
 
+}
+
+pub fn secrets_table(secrets: Vec<SecretInfo>) -> Table {
+    let mut table = Table::new();
+    table.set_header(vec!["Secret Key", "Tags"]);
+
+    secrets.into_iter().for_each(|x| {
+        table.add_row(vec![
+            x.key,
+            x.tags.join(", ") 
+        ]);
+    });
+
+    table
 }

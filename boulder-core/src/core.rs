@@ -1,17 +1,18 @@
 use crate::errors::DatabaseError;
-
 use chrono::{DateTime, Utc};
-
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use crate::secrets::{EncryptedSecret, SecretInfo};
 
-use crate::users::{Role, User};
+use crate::users::User;
 
 #[async_trait::async_trait]
 pub trait Database {
-    async fn view_all_secrets(&self, user_roles: Role) -> Result<Vec<String>, DatabaseError>;
-    async fn view_secret(&self, user_roles: Role, key: String) -> Result<String, DatabaseError>;
+    async fn view_all_secrets(&self, user: User, tag: Option<String>) -> Result<Vec<SecretInfo>, DatabaseError>;
+    async fn view_secret_decrypted(&self, user: User, key: String) -> Result<String, DatabaseError>;
+    async fn view_secret(&self, user: User, key: String) -> Result<EncryptedSecret, DatabaseError>;
     async fn create_secret(&self, key: String, value: String) -> Result<(), DatabaseError>;
+    async fn update_secret(&self, key: String, secret: EncryptedSecret) -> Result<(), DatabaseError>;
     async fn delete_secret(&self, key: String) -> Result<(), DatabaseError>;
     async fn view_users(&self) -> Result<Vec<User>, DatabaseError>;
     async fn view_user_by_name(&self, id: String) -> Result<User, DatabaseError>;

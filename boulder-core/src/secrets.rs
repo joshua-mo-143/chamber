@@ -5,36 +5,38 @@ use aes_gcm::{
 };
 use generic_array::typenum::{U12, U32};
 use generic_array::GenericArray;
-
 use serde_bytes::ByteBuf;
 use serde::{Deserialize, Serialize, Serializer, Deserializer};
 
-#[derive(sqlx::FromRow)]
+#[derive(sqlx::FromRow, Clone)]
 pub struct EncryptedSecret {
     #[sqlx(try_from = "Vec<u8>")]
     nonce: Nonce,
     pub ciphertext: Vec<u8>,
+    tags: Vec<String>,
+    access_level: i32,
+    role_whitelist: Vec<String>
 }
 
-impl EncryptedSecret {
-    pub fn nonce(&self) -> GenericArray<u8, U12> {
-        self.nonce.0
-    }
+#[derive(sqlx::FromRow, Clone, Serialize, Deserialize, Debug)]
+pub struct SecretInfo {
+    pub key: String,
+    pub tags: Vec<String>,
+    pub access_level: i32,
+    pub role_whitelist: Vec<String>
+}
 
-    pub fn nonce_as_u8(&self) -> Vec<u8> {
-        self.nonce.0.to_vec()
+impl SecretInfo {
+    pub fn from_encrypted(es: EncryptedSecret, key: String) -> Self {
+        Self {
+            key,
+            tags: es.clone().tags(),
+            access_level: es.access_level(),
+            role_whitelist: es.role_whitelist()
+        }
     }
 }
 
-impl From<Vec<u8>> for Nonce {
-    fn from(vec: Vec<u8>) -> Self {
-        let nonce: GenericArray<u8, U12> = *GenericArray::from_slice(&vec[..]);
-
-        Self(nonce)
-    }
-}
-
-struct Nonce(GenericArray<u8, U12>);
 
 impl EncryptedSecret {
     pub fn new(cipher_key: Key<Aes256Gcm>, _key: String, val: String) -> Self {
@@ -43,7 +45,65 @@ impl EncryptedSecret {
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng); // 96-bits; unique per message
         let ciphertext = cipher.encrypt(&nonce, val.as_ref()).unwrap();
 
-        Self { nonce: Nonce(nonce), ciphertext }
+        Self { nonce: Nonce(nonce), ciphertext, tags: Vec::new(), access_level: 0, role_whitelist: Vec::new() }
+    }
+
+    pub fn nonce(&self) -> GenericArray<u8, U12> {
+        self.nonce.0
+    }
+
+    pub fn nonce_as_u8(&self) -> Vec<u8> {
+        self.nonce.0.to_vec()
+    }
+
+    pub fn tags(self) -> Vec<String> {
+        self.tags
+    }
+
+    pub fn replace_tags(&mut self, tags: Vec<String>) {
+        self.tags = tags;
+    }
+    pub fn remove_all_tags(mut self) {
+        self.tags = Vec::new();
+    }
+
+    pub fn add_tag(mut self, string: &str) {
+        self.tags.push(string.to_owned());
+    }
+
+    pub fn remove_tag(mut self, tag: &str) {
+        self.tags.retain(|x| x == &tag.to_owned());
+    }
+
+    pub fn access_level(&self) -> i32 {
+        self.access_level
+    }
+
+    pub fn set_access_level(&mut self, level: i32) {
+        self.access_level = level;
+    }
+
+    pub fn role_whitelist(self) -> Vec<String> {
+        self.role_whitelist
+    }
+
+    pub fn add_role_to_whitelist(&mut self, role: String) {
+        self.role_whitelist.push(role);
+    }
+
+    pub fn remove_role_from_whitelist(&mut self, role: String) {
+        self.role_whitelist.retain(|x| x != &role);
+    }
+}
+
+#[derive(Clone)]
+struct Nonce(GenericArray<u8, U12>);
+
+impl From<Vec<u8>> for Nonce {
+    fn from(vec: Vec<u8>) -> Self {
+        let nonce: GenericArray<u8, U12> = *GenericArray::from_slice(&vec[..]);
+
+        Self(nonce)
     }
 }
 

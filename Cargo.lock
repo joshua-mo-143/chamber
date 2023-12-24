@@ -355,6 +355,7 @@ dependencies = [
  "boulder-core",
  "boulder-server",
  "clap",
+ "comfy-table 7.1.0",
  "generic-array",
  "home",
  "inquire",
@@ -538,6 +539,18 @@ dependencies = [
  "crossterm 0.26.1",
  "strum 0.24.1",
  "strum_macros 0.24.3",
+ "unicode-width",
+]
+
+[[package]]
+name = "comfy-table"
+version = "7.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c64043d6c7b7a4c58e39e7efccfdea7b93d885a795d0c054a69dbbf4dd52686"
+dependencies = [
+ "crossterm 0.27.0",
+ "strum 0.25.0",
+ "strum_macros 0.25.3",
  "unicode-width",
 ]
 
@@ -2507,7 +2520,7 @@ dependencies = [
  "axum",
  "bytes",
  "chrono",
- "comfy-table",
+ "comfy-table 6.2.0",
  "crossterm 0.27.0",
  "headers 0.3.9",
  "http 0.2.11",

@@ -2,7 +2,6 @@ use axum::{
     body::{Body, HttpBody},
     http::{self, Request, StatusCode},
 };
-use boulder_core::users::Role;
 use nanoid::nanoid;
 use serde_json::Value;
 use std::net::SocketAddr;
@@ -52,7 +51,7 @@ pub async fn create_user_and_log_in(addr: SocketAddr, key: &str) -> String {
                 .uri(format!("http://{}/users/create", addr))
                 .body(Body::from(
                     serde_json::to_vec(
-                        &serde_json::json!({"name": &random_name, "role": Role::Guest}),
+                        &serde_json::json!({"name": &random_name, "role": "Guest"}),
                     )
                     .unwrap(),
                 ))
@@ -80,7 +79,7 @@ pub async fn create_user_and_log_in(addr: SocketAddr, key: &str) -> String {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::OK);
+   assert_eq!(response.status(), StatusCode::OK);
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&body).unwrap();
