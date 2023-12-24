@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, Mutex};
 
 use crate::core::{CreateSecretParams, Database};
 use crate::errors::DatabaseError;
-use crate::secrets::{EncryptedSecret, SecretInfo};
+use crate::secrets::{EncryptedSecret, SecretInfo, KeyFile};
 use crate::users::User;
 
 use aes_gcm::{
@@ -17,8 +17,8 @@ use crate::core::LockedStatus;
 
 #[derive(Clone)]
 pub struct InMemoryDatabase {
-    pub sealkey: String,
-    pub key: Key<Aes256Gcm>,
+    pub sealkey: Arc<Mutex<Option<String>>>,
+    pub key: Arc<Mutex<Option<Key<Aes256Gcm>>>>,
     pub secrets: Arc<RwLock<HashMap<String, EncryptedSecret>>>,
     pub users: Arc<RwLock<Vec<User>>>,
     pub lock: LockedStatus,
@@ -35,8 +35,8 @@ impl InMemoryDatabase {
         let _sealkey = nanoid::nanoid!(20);
         println!("Your root key is: 111");
         Self {
-            sealkey: "111".to_string(),
-            key: Aes256Gcm::generate_key(OsRng),
+            sealkey: Arc::new(Mutex::new(None)),
+            key: Arc::new(Mutex::new(None)),
             secrets: Arc::new(RwLock::new(HashMap::new())),
             users: Arc::new(RwLock::new(Vec::new())),
             lock: LockedStatus::default(),
@@ -47,7 +47,8 @@ impl InMemoryDatabase {
 #[async_trait::async_trait]
 impl Database for InMemoryDatabase {
     async fn create_secret(&self, secret: CreateSecretParams) -> Result<(), DatabaseError> {
-        let mut new_secret = EncryptedSecret::new(self.key, secret.key, secret.value);
+        let crypto_key = self.key.lock().await;
+        let mut new_secret = EncryptedSecret::new(crypto_key.unwrap(), secret.key, secret.value);
         new_secret.set_access_level(secret.access_level);
         new_secret.clone().add_tags(secret.tags);
         new_secret.set_role_whitelist(secret.role_whitelist);
@@ -116,8 +117,9 @@ impl Database for InMemoryDatabase {
             Some(res) => res,
             None => return Err(DatabaseError::KeyNotFound),
         };
+         let key = self.key.lock().await;
+         let key = Aes256Gcm::new(&key.unwrap());
 
-        let key = Aes256Gcm::new(&self.key);
         let plaintext = key.decrypt(&retrieved_key.nonce(), retrieved_key.ciphertext.as_ref())?;
 
         let string_from_utf8 = std::str::from_utf8(&plaintext)?;
@@ -183,7 +185,9 @@ impl Database for InMemoryDatabase {
     }
 
     async fn unlock(&self, key: String) -> Result<bool, DatabaseError> {
-        if key != self.sealkey {
+let unseal_key = self.sealkey.lock().await;
+
+        if key != *unseal_key.clone().unwrap() {
             return Err(DatabaseError::Forbidden);
         }
 
@@ -201,6 +205,8 @@ impl Database for InMemoryDatabase {
     }
 
     fn get_root_key(&self) -> String {
-        self.sealkey.clone()
+        let key = self.sealkey.lock().await;
+
+        key.as_ref().cloned().unwrap()
     }
 }

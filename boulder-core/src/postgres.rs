@@ -9,6 +9,8 @@ use aes_gcm::{
 };
 use nanoid::nanoid;
 
+
+
 use crate::core::CreateSecretParams;
 use sqlx::PgPool;
 
@@ -26,18 +28,15 @@ pub struct Postgres {
 impl Postgres {
     pub fn from_pool(pool: PgPool) -> Self {
         Self {
-            sealkey: "test".to_string(),
+            sealkey: String::new(),
             key: Aes256Gcm::generate_key(OsRng),
             pool,
             lock: LockedStatus::default(),
         }
     }
-
-    pub fn with_config_file(mut self, vec: Vec<u8>) -> Self {
-        let decoded: KeyFile = bincode::deserialize(&vec).unwrap();
-
-        self.sealkey = decoded.clone().unseal_key();
-        self.key = decoded.crypto_key();
+    pub fn with_cfg_file(mut self, key: KeyFile) -> Self {
+        self.sealkey = key.clone().unseal_key();
+        self.key = key.crypto_key();
         self
     }
 }
@@ -45,6 +44,7 @@ impl Postgres {
 #[async_trait::async_trait]
 impl Database for Postgres {
     async fn create_secret(&self, secret: CreateSecretParams) -> Result<(), DatabaseError> {
+
         let mut new_secret = EncryptedSecret::new(self.key, secret.key, secret.value);
         new_secret.set_access_level(secret.access_level);
         new_secret.clone().add_tags(secret.tags);
@@ -229,7 +229,9 @@ impl Database for Postgres {
 
         Ok(())
     }
+
     async fn unlock(&self, key: String) -> Result<bool, DatabaseError> {
+
         if key != self.sealkey {
             return Err(DatabaseError::Forbidden);
         }
@@ -245,6 +247,7 @@ impl Database for Postgres {
 
         *state
     }
+
     fn get_root_key(&self) -> String {
         self.sealkey.clone()
     }

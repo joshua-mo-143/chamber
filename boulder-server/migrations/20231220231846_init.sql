@@ -20,3 +20,10 @@ CREATE TABLE IF NOT EXISTS secrets (
 );
 
 INSERT INTO users (username, password, access_level) values ('root', 'password', 9001);
+
+CREATE TABLE IF NOT EXISTS core (
+	id SERIAL PRIMARY KEY,
+	unseal_key VARCHAR NOT NULL,
+	crypto_key BYTEA NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

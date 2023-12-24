@@ -4,7 +4,7 @@ use comfy_table::Table;
 use inquire::Text;
 use reqwest::StatusCode;
 
-use std::path::PathBuf;
+
 
 use crate::errors::CliError;
 
@@ -153,27 +153,32 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
             }
         },
         Commands::Keygen(args) => {
+                let website = match cfg.website() {
+                    Some(res) => format!("{res}/init"),
+                    None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+                };
             let key = match args.key {
                 Some(res) => KeyFile::from_key(&res),
                 None => KeyFile::new(),
             };
 
             let encoded = bincode::serialize(&key).unwrap();
+                let ctx = reqwest::blocking::Client::new();
 
-            let mut path = match args.output {
-                Some(res) => res,
-                None => PathBuf::from("./boulder.bin"),
-            };
+                let res = ctx
+                    .post(website)
+                    .header("Content-Type", "application/json")
+                    .json(&serde_json::json!({"data":encoded}))
+                    .send()?;
 
-            if path.as_path().is_dir() {
-                path.push("boulder.bin");
-            }
-
-            std::fs::write(&path, encoded)?;
-
+            match res.status() {
+                StatusCode::OK => {
             println!("Your root key: {}", key.unseal_key());
             println!("Be sure to keep this key somewhere safe - you won't be able to get it back!");
             println!("---");
+                }
+                _ => println!("Error: {}", res.text().unwrap()) 
+            } 
         }
 
         Commands::Users { cmd } => match cmd {
@@ -253,7 +258,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
             match res.status() {
                 StatusCode::OK => println!("The database has been unsealed and is ready to use!"),
                 _ => {
-                    println!("Bad credentials.")
+                    println!("{}", res.text()?);
                 }
             }
         }

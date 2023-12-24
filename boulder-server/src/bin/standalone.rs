@@ -1,5 +1,6 @@
 use boulder_server::router::init_router;
 use boulder_server::state::DynDatabase;
+use boulder_core::secrets::KeyFile;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use sqlx::postgres::PgPoolOptions;
@@ -18,14 +19,12 @@ async fn main() {
     
     sqlx::migrate!().run(&db).await.unwrap();
 
-    let pg = match std::env::var("BOULDER_BIN") {
-        Ok(var) => Postgres::from_pool(db).with_env_var(var),
-        Err(_) => {
-            println!("Couldn't get a key file! Reverting to default random key generation.");
-            println!("Be sure to create a key file using the CLI otherwise a random crypto key will be generated, invalidating keys on previous deployments.");
-            Postgres::from_pool(db)
-        }
+    let file: KeyFile = match std::fs::read("boulder.bin") {
+        Ok(res) => bincode::deserialize(&res).unwrap(),
+        Err(_) => KeyFile::new()
     };
+
+    let pg = Postgres::from_pool(db).with_cfg_file(file);
 
     let state = Arc::new(pg) as DynDatabase;
     let router = init_router(state);
