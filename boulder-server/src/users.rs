@@ -1,14 +1,22 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json, TypedHeader};
 use serde::Deserialize;
 
-use boulder_core::users::User;
 use crate::errors::ApiError;
 use crate::header::BoulderHeader;
 use crate::state::DynDatabase;
+use boulder_core::users::User;
 
 #[derive(Deserialize)]
 pub struct UserParams {
     name: String,
+}
+
+#[derive(Deserialize)]
+pub struct CreateUserParams {
+    pub name: String,
+    pub password: Option<String>,
+    pub access_level: Option<i32>,
+    pub roles: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -20,7 +28,7 @@ pub struct UserRoleParams {
 pub async fn create_user(
     State(state): State<DynDatabase>,
     TypedHeader(_auth): TypedHeader<BoulderHeader>,
-    Json(UserParams { name }): Json<UserParams>,
+    Json(CreateUserParams { name, .. }): Json<CreateUserParams>,
 ) -> Result<impl IntoResponse, ApiError> {
     let res = state.create_user(name).await?;
 

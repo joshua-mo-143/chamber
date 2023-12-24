@@ -5,27 +5,21 @@ use axum::{
     response::IntoResponse,
     Json, TypedHeader,
 };
-use serde::{Deserialize};
+use serde::Deserialize;
 
 use crate::auth::Claims;
 use crate::errors::ApiError;
 use crate::state::DynDatabase;
 
-
 use crate::header::BoulderHeader;
-
-#[derive(Deserialize)]
-pub struct Secret {
-    key: String,
-    value: String,
-}
+use boulder_core::core::CreateSecretParams;
 
 pub async fn create_secret(
     State(db): State<DynDatabase>,
     _claim: Claims,
-    Json(Secret { key, value }): Json<Secret>,
+    Json(secret): Json<CreateSecretParams>,
 ) -> Result<impl IntoResponse, ApiError> {
-    db.create_secret(key, value).await.unwrap();
+    db.create_secret(secret).await.unwrap();
 
     Ok(StatusCode::CREATED)
 }
@@ -47,7 +41,7 @@ pub struct SecretKey {
 
 #[derive(Deserialize)]
 pub struct ListSecretsArgs {
-    pub tag_filter: Option<String>
+    pub tag_filter: Option<String>,
 }
 
 pub async fn view_secret(
@@ -56,7 +50,7 @@ pub async fn view_secret(
     Json(secret): Json<SecretKey>,
 ) -> Result<impl IntoResponse, ApiError> {
     let user = db.view_user_by_name(claim.sub).await?;
-    let string = db.view_secret_decrypted(user, secret.key).await.unwrap();
+    let string = db.view_secret_decrypted(user, secret.key).await?;
 
     Ok(string)
 }
@@ -76,7 +70,7 @@ pub async fn view_all_secrets(
 #[derive(Deserialize)]
 pub struct UpdateSecret {
     key: String,
-    update_data: Vec<String>
+    update_data: Vec<String>,
 }
 
 pub async fn update_secret(
@@ -87,7 +81,7 @@ pub async fn update_secret(
     let user = db.view_user_by_name(claim.sub).await?;
     let mut secret_key = db.view_secret(user, secret.key.to_owned()).await?;
 
-    secret_key.replace_tags(secret.update_data); 
+    secret_key.replace_tags(secret.update_data);
 
     db.update_secret(secret.key, secret_key).await?;
 

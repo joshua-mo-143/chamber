@@ -5,17 +5,25 @@ use aes_gcm::{
 };
 use generic_array::typenum::{U12, U32};
 use generic_array::GenericArray;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_bytes::ByteBuf;
-use serde::{Deserialize, Serialize, Serializer, Deserializer};
 
 #[derive(sqlx::FromRow, Clone)]
 pub struct EncryptedSecret {
+    pub key: String,
     #[sqlx(try_from = "Vec<u8>")]
     nonce: Nonce,
     pub ciphertext: Vec<u8>,
     tags: Vec<String>,
     access_level: i32,
-    role_whitelist: Vec<String>
+    role_whitelist: Vec<String>,
+}
+
+#[derive(sqlx::FromRow, Clone)]
+pub struct Secret {
+    #[sqlx(try_from = "Vec<u8>")]
+    pub nonce: Nonce,
+    pub ciphertext: Vec<u8>,
 }
 
 #[derive(sqlx::FromRow, Clone, Serialize, Deserialize, Debug)]
@@ -23,7 +31,7 @@ pub struct SecretInfo {
     pub key: String,
     pub tags: Vec<String>,
     pub access_level: i32,
-    pub role_whitelist: Vec<String>
+    pub role_whitelist: Vec<String>,
 }
 
 impl SecretInfo {
@@ -32,20 +40,26 @@ impl SecretInfo {
             key,
             tags: es.clone().tags(),
             access_level: es.access_level(),
-            role_whitelist: es.role_whitelist()
+            role_whitelist: es.role_whitelist(),
         }
     }
 }
 
-
 impl EncryptedSecret {
-    pub fn new(cipher_key: Key<Aes256Gcm>, _key: String, val: String) -> Self {
+    pub fn new(cipher_key: Key<Aes256Gcm>, key: String, val: String) -> Self {
         let cipher = Aes256Gcm::new(&cipher_key);
 
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng); // 96-bits; unique per message
         let ciphertext = cipher.encrypt(&nonce, val.as_ref()).unwrap();
 
-        Self { nonce: Nonce(nonce), ciphertext, tags: Vec::new(), access_level: 0, role_whitelist: Vec::new() }
+        Self {
+            key,
+            nonce: Nonce(nonce),
+            ciphertext,
+            tags: Vec::new(),
+            access_level: 0,
+            role_whitelist: Vec::new(),
+        }
     }
 
     pub fn nonce(&self) -> GenericArray<u8, U12> {
@@ -67,6 +81,12 @@ impl EncryptedSecret {
         self.tags = Vec::new();
     }
 
+    pub fn add_tags(mut self, vec: Option<Vec<String>>) {
+        if let Some(mut vec) = vec {
+            self.tags.append(&mut vec);
+        }
+    }
+
     pub fn add_tag(mut self, string: &str) {
         self.tags.push(string.to_owned());
     }
@@ -79,12 +99,20 @@ impl EncryptedSecret {
         self.access_level
     }
 
-    pub fn set_access_level(&mut self, level: i32) {
-        self.access_level = level;
+    pub fn set_access_level(&mut self, level: Option<i32>) {
+        if let Some(level) = level {
+            self.access_level = level;
+        }
     }
 
     pub fn role_whitelist(self) -> Vec<String> {
         self.role_whitelist
+    }
+
+    pub fn set_role_whitelist(&mut self, whitelist: Option<Vec<String>>) {
+        if let Some(mut whitelist) = whitelist {
+            self.role_whitelist.append(&mut whitelist);
+        }
     }
 
     pub fn add_role_to_whitelist(&mut self, role: String) {
@@ -97,7 +125,7 @@ impl EncryptedSecret {
 }
 
 #[derive(Clone)]
-struct Nonce(GenericArray<u8, U12>);
+pub struct Nonce(pub GenericArray<u8, U12>);
 
 impl From<Vec<u8>> for Nonce {
     fn from(vec: Vec<u8>) -> Self {
@@ -107,11 +135,12 @@ impl From<Vec<u8>> for Nonce {
     }
 }
 
+#[derive(Clone)]
 struct SerializeKey(GenericArray<u8, U32>);
 
 impl SerializeKey {
     pub fn new() -> Self {
- Self(Aes256Gcm::generate_key(OsRng))
+        Self(Aes256Gcm::generate_key(OsRng))
     }
 }
 
@@ -130,7 +159,9 @@ impl<'de> Deserialize<'de> for SerializeKey {
     where
         D: Deserializer<'de>,
     {
-        let bytes = Deserialize::deserialize(deserializer).map(ByteBuf::into_vec).unwrap();
+        let bytes = Deserialize::deserialize(deserializer)
+            .map(ByteBuf::into_vec)
+            .unwrap();
 
         let bytes: GenericArray<u8, U32> = *GenericArray::from_slice(&bytes[..]);
 
@@ -138,10 +169,10 @@ impl<'de> Deserialize<'de> for SerializeKey {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct KeyFile {
     unseal_key: String,
-    crypto_key: SerializeKey
+    crypto_key: SerializeKey,
 }
 
 impl KeyFile {
@@ -149,12 +180,22 @@ impl KeyFile {
         Self {
             unseal_key: nanoid::nanoid!(100),
             crypto_key: SerializeKey::new(),
+        }
+    }
 
+    pub fn from_key(string: &str) -> Self {
+        Self {
+            unseal_key: string.to_owned(),
+            crypto_key: SerializeKey::new(),
         }
     }
 
     pub fn unseal_key(self) -> String {
         self.unseal_key
+    }
+
+    pub fn crypto_key(self) -> GenericArray<u8, U32> {
+        self.crypto_key.0
     }
 }
 

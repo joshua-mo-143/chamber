@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::core::Database;
+use crate::core::{CreateSecretParams, Database};
 use crate::errors::DatabaseError;
 use crate::secrets::{EncryptedSecret, SecretInfo};
 use crate::users::User;
@@ -46,11 +46,13 @@ impl InMemoryDatabase {
 
 #[async_trait::async_trait]
 impl Database for InMemoryDatabase {
-    async fn create_secret(&self, key: String, value: String) -> Result<(), DatabaseError> {
-        let encrypted_secret = EncryptedSecret::new(self.key, key.clone(), value);
-
+    async fn create_secret(&self, secret: CreateSecretParams) -> Result<(), DatabaseError> {
+        let mut new_secret = EncryptedSecret::new(self.key, secret.key, secret.value);
+        new_secret.set_access_level(secret.access_level);
+        new_secret.clone().add_tags(secret.tags);
+        new_secret.set_role_whitelist(secret.role_whitelist);
         let mut secrets = self.secrets.write().await;
-        secrets.insert(key, encrypted_secret);
+        secrets.insert(new_secret.key.clone(), new_secret);
         Ok(())
     }
 
@@ -60,16 +62,27 @@ impl Database for InMemoryDatabase {
         secrets.remove(&key);
 
         Ok(())
-    } 
-    async fn view_all_secrets(&self, _role: User, _tag: Option<String>) -> Result<Vec<SecretInfo>, DatabaseError> {
+    }
+    async fn view_all_secrets(
+        &self,
+        _role: User,
+        _tag: Option<String>,
+    ) -> Result<Vec<SecretInfo>, DatabaseError> {
         let store = self.secrets.read().await;
 
-        let retrieved_keys: Vec<SecretInfo> = store.iter().map(|(k, v)| SecretInfo::from_encrypted(v.clone(), k.to_owned())).collect(); 
-        
+        let retrieved_keys: Vec<SecretInfo> = store
+            .iter()
+            .map(|(k, v)| SecretInfo::from_encrypted(v.clone(), k.to_owned()))
+            .collect();
+
         Ok(retrieved_keys)
     }
 
-    async fn view_secret(&self, _user_role: User, key: String) -> Result<EncryptedSecret, DatabaseError> {
+    async fn view_secret(
+        &self,
+        _user_role: User,
+        key: String,
+    ) -> Result<EncryptedSecret, DatabaseError> {
         let store = self.secrets.read().await;
 
         let retrieved_key = match store.get(&*key) {
@@ -80,7 +93,11 @@ impl Database for InMemoryDatabase {
         Ok(retrieved_key.clone())
     }
 
-    async fn update_secret(&self, key: String, secret: EncryptedSecret) -> Result<(), DatabaseError> {
+    async fn update_secret(
+        &self,
+        key: String,
+        secret: EncryptedSecret,
+    ) -> Result<(), DatabaseError> {
         let mut store = self.secrets.write().await;
 
         store.insert(key, secret);
@@ -88,7 +105,11 @@ impl Database for InMemoryDatabase {
         Ok(())
     }
 
-    async fn view_secret_decrypted(&self, _user_roles: User, key: String) -> Result<String, DatabaseError> {
+    async fn view_secret_decrypted(
+        &self,
+        _user_roles: User,
+        key: String,
+    ) -> Result<String, DatabaseError> {
         let store = self.secrets.read().await;
 
         let retrieved_key = match store.get(&*key) {
@@ -149,6 +170,10 @@ impl Database for InMemoryDatabase {
         Ok(user.password)
     }
 
+    async fn update_user(&self, _user: User) -> Result<(), DatabaseError> {
+        Ok(())
+    }
+
     async fn delete_user(&self, name: String) -> Result<(), DatabaseError> {
         let mut store = self.users.write().await;
 
@@ -168,11 +193,13 @@ impl Database for InMemoryDatabase {
 
         Ok(true)
     }
+
     async fn is_locked(&self) -> bool {
         let state = self.lock.is_sealed.lock().await;
 
         *state
     }
+
     fn get_root_key(&self) -> String {
         self.sealkey.clone()
     }

@@ -1,5 +1,4 @@
 use boulder_core::kv::InMemoryDatabase;
-use boulder_core::users::Role;
 use boulder_server::router::init_router;
 use boulder_server::state::DynDatabase;
 mod common;
@@ -129,7 +128,7 @@ mod tests {
                     .uri(format!("http://{}/users/create", addr))
                     .body(Body::from(
                         serde_json::to_vec(
-                            &serde_json::json!({"name": &random_name, "role": Role::User}),
+                            &serde_json::json!({"name": &random_name, "role": "Guest"}),
                         )
                         .unwrap(),
                     ))
@@ -170,7 +169,7 @@ mod tests {
                     .uri(format!("http://{}/users/create", addr))
                     .body(Body::from(
                         serde_json::to_vec(
-                            &serde_json::json!({"name": &random_name, "role": Role::Editor}),
+                            &serde_json::json!({"name": &random_name, "role": "Editor"}),
                         )
                         .unwrap(),
                     ))
@@ -211,7 +210,7 @@ mod tests {
                     .uri(format!("http://{}/users/create", addr))
                     .body(Body::from(
                         serde_json::to_vec(
-                            &serde_json::json!({"name": &random_name, "role": Role::AlmostRoot}),
+                            &serde_json::json!({"name": &random_name, "role": "Almost-Root"}),
                         )
                         .unwrap(),
                     ))
@@ -252,7 +251,7 @@ mod tests {
                     .uri(format!("http://{}/users/create", addr))
                     .body(Body::from(
                         serde_json::to_vec(
-                            &serde_json::json!({"name": &random_name, "role": Role::Root}),
+                            &serde_json::json!({"name": &random_name, "role": "Root"}),
                         )
                         .unwrap(),
                     ))

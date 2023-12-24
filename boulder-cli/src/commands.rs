@@ -1,6 +1,6 @@
+use boulder_core::secrets::SecretInfo;
 use boulder_server::auth::AuthBody;
 use comfy_table::Table;
-use boulder_core::secrets::SecretInfo;
 use inquire::Text;
 use reqwest::StatusCode;
 
@@ -10,20 +10,25 @@ use crate::errors::CliError;
 
 use crate::args::{Cli, Commands, SecretsCommands, UserCommands, WebsiteCommands};
 
-use boulder_core::secrets::KeyFile;
 use crate::config::AppConfig;
+use boulder_core::secrets::KeyFile;
 
 pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
     match cli.command {
         Commands::Secrets { cmd } => match cmd {
-            SecretsCommands::Get { key } => {
+            SecretsCommands::Get(args) => {
                 let Some(jwt) = cfg.clone().jwt_key() else {
-                    panic!("You need to log in before you can do that!"); 
+                    panic!("You need to log in before you can do that!");
                 };
 
                 let website = match cfg.website() {
                     Some(res) => format!("{res}/secrets/get"),
                     None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+                };
+
+                let key = match args.key {
+                    Some(res) => res,
+                    None => Text::new("Please enter the key you want to retrieve:").prompt()?,
                 };
 
                 let ctx = reqwest::blocking::Client::new();
@@ -42,7 +47,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
             SecretsCommands::Set { key, value } => {
                 let Some(jwt) = cfg.clone().jwt_key() else {
-                    panic!("You need to log in before you can do that!"); 
+                    panic!("You need to log in before you can do that!");
                 };
 
                 let website = match cfg.website() {
@@ -68,7 +73,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
             }
             SecretsCommands::Update { key, tags } => {
                 let Some(jwt) = cfg.clone().jwt_key() else {
-                    panic!("You need to log in before you can do that!"); 
+                    panic!("You need to log in before you can do that!");
                 };
 
                 let website = match cfg.website() {
@@ -87,15 +92,14 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
                     }))
                     .send()?;
 
-                    match res.status() {
-                        StatusCode::OK => println!("Meme"),
-                        _ => println!("Not OK!") 
-                    }
-
+                match res.status() {
+                    StatusCode::OK => println!("Meme"),
+                    _ => println!("Not OK!"),
+                }
             }
             SecretsCommands::List(args) => {
                 let Some(jwt) = cfg.clone().jwt_key() else {
-                    panic!("You need to log in before you can do that!"); 
+                    panic!("You need to log in before you can do that!");
                 };
 
                 let website = match cfg.website() {
@@ -109,7 +113,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
                     .post(website)
                     .header("Authorization", jwt)
                     .json(&serde_json::json!({
-                        "tag_filter": args.tag 
+                        "tag_filter": args.tags
                     }))
                     .send()?;
 
@@ -118,16 +122,20 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
                 let table = secrets_table(json);
 
                 println!("{table}");
-
             }
-            SecretsCommands::Rm { key } => {
+            SecretsCommands::Rm(args) => {
                 let Some(jwt) = cfg.clone().jwt_key() else {
-                    panic!("You need to log in before you can do that!"); 
+                    panic!("You need to log in before you can do that!");
                 };
 
                 let website = match cfg.website() {
                     Some(res) => format!("{res}/secrets"),
                     None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+                };
+
+                let key = match args.key {
+                    Some(res) => res,
+                    None => Text::new("Please enter the key you want to retrieve:").prompt()?,
                 };
 
                 let ctx = reqwest::blocking::Client::new();
@@ -140,29 +148,32 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
                 match res.status() {
                     StatusCode::OK => println!("Key successfully deleted."),
-                    _ => println!("Error while deleting key: {}", res.text().unwrap()) 
+                    _ => println!("Error while deleting key: {}", res.text().unwrap()),
                 }
-
             }
         },
         Commands::Keygen(args) => {
-        let key = KeyFile::new();
-        let encoded = bincode::serialize(&key).unwrap();
+            let key = match args.key {
+                Some(res) => KeyFile::from_key(&res),
+                None => KeyFile::new(),
+            };
 
-        let mut path = match args.output {
-            Some(res) => res,
-            None => PathBuf::from("./boulder.bin") 
-        };
+            let encoded = bincode::serialize(&key).unwrap();
 
-        if path.as_path().is_dir() {
-            path.push("boulder.bin");
-        }
+            let mut path = match args.output {
+                Some(res) => res,
+                None => PathBuf::from("./boulder.bin"),
+            };
 
-        std::fs::write(&path, encoded)?;
+            if path.as_path().is_dir() {
+                path.push("boulder.bin");
+            }
 
-        println!("Your root key: {}", key.unseal_key());
-        println!("Be sure to keep this key somewhere safe - you won't be able to get it back!");
-        println!("---");
+            std::fs::write(&path, encoded)?;
+
+            println!("Your root key: {}", key.unseal_key());
+            println!("Be sure to keep this key somewhere safe - you won't be able to get it back!");
+            println!("---");
         }
 
         Commands::Users { cmd } => match cmd {
@@ -172,7 +183,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
                     None => panic!("You didn't set a URL for a Boulder instance to log into!"),
                 };
 
-                let key = Text::new("Please enter your root key:").prompt()?; 
+                let key = Text::new("Please enter your root key:").prompt()?;
 
                 let ctx = reqwest::blocking::Client::new();
 
@@ -198,7 +209,12 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
             }
         },
 
-        Commands::Login { api_key } => {
+        Commands::Login(args) => {
+            let password = match args.password {
+                Some(res) => res,
+                None => Text::new("Please enter your password:").prompt()?,
+            };
+
             let ctx = reqwest::blocking::Client::new();
 
             let website = match cfg.to_owned().website() {
@@ -209,7 +225,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
             let res = ctx
                 .post(website)
                 .header("Content-Type", "application/json")
-                .json(&serde_json::json!({"password": api_key }))
+                .json(&serde_json::json!({"password": password }))
                 .send()?;
 
             let res = res.json::<AuthBody>()?;
@@ -243,8 +259,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
         }
     }
 
-Ok(())
-
+    Ok(())
 }
 
 pub fn secrets_table(secrets: Vec<SecretInfo>) -> Table {
@@ -252,10 +267,7 @@ pub fn secrets_table(secrets: Vec<SecretInfo>) -> Table {
     table.set_header(vec!["Secret Key", "Tags"]);
 
     secrets.into_iter().for_each(|x| {
-        table.add_row(vec![
-            x.key,
-            x.tags.join(", ") 
-        ]);
+        table.add_row(vec![x.key, x.tags.join(", ")]);
     });
 
     table

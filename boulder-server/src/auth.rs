@@ -6,6 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json, RequestPartsExt,
 };
+use boulder_core::errors::DatabaseError;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -35,7 +36,7 @@ pub async fn login(
     // Here you can check the user credentials from a database
     let res = match state.get_user_from_password(user.password).await {
         Ok(res) => res,
-        Err(_) => return Err(AuthError::WrongCredentials),
+        Err(e) => return Err(AuthError::WrongCredentials(e)),
     };
 
     let claims = Claims {
@@ -90,10 +91,17 @@ where
 impl IntoResponse for AuthError {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
-            AuthError::WrongCredentials => (StatusCode::UNAUTHORIZED, "Wrong credentials"),
-            AuthError::MissingCredentials => (StatusCode::BAD_REQUEST, "Missing credentials"),
-            AuthError::TokenCreation => (StatusCode::INTERNAL_SERVER_ERROR, "Token creation error"),
-            AuthError::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token"),
+            AuthError::WrongCredentials(e) => {
+                (StatusCode::UNAUTHORIZED, format!("Wrong credentials: {e}"))
+            }
+            AuthError::MissingCredentials => {
+                (StatusCode::BAD_REQUEST, "Missing credentials".to_string())
+            }
+            AuthError::TokenCreation => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Token creation error".to_string(),
+            ),
+            AuthError::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token".to_string()),
         };
         let body = Json(json!({
             "error": error_message,
@@ -130,7 +138,7 @@ pub struct AuthBody {
 
 #[derive(Debug)]
 pub enum AuthError {
-    WrongCredentials,
+    WrongCredentials(DatabaseError),
     MissingCredentials,
     TokenCreation,
     InvalidToken,

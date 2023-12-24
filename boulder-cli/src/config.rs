@@ -1,6 +1,6 @@
+use crate::errors::ConfigError;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use crate::errors::ConfigError;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct AppConfig {
@@ -19,7 +19,8 @@ impl AppConfig {
 
     pub fn get() -> Result<Self, ConfigError> {
         let cfg_dir = home::home_dir().unwrap().join(".config/boulder");
-        let cfg_file = home::home_dir().unwrap() 
+        let cfg_file = home::home_dir()
+            .unwrap()
             .join(".config/boulder/config.toml");
         if !cfg_dir.as_path().exists() {
             fs::create_dir_all(cfg_dir)?;
@@ -37,7 +38,8 @@ impl AppConfig {
     }
 
     pub fn set_website(mut self, website: &str) -> Result<(), ConfigError> {
-        let cfg_file = home::home_dir().unwrap() 
+        let cfg_file = home::home_dir()
+            .unwrap()
             .join(".config/boulder/config.toml");
 
         let website = if website.starts_with("localhost") {
@@ -59,8 +61,9 @@ impl AppConfig {
         Ok(())
     }
 
-    pub fn set_token(mut self, token: &str) -> Result<(), ConfigError>{
-        let cfg_file = home::home_dir().unwrap()
+    pub fn set_token(mut self, token: &str) -> Result<(), ConfigError> {
+        let cfg_file = home::home_dir()
+            .unwrap()
             .join(".config/boulder/config.toml");
 
         self.jwt_key = Some(token.to_owned());

@@ -22,7 +22,12 @@ pub fn init_router(state: DynDatabase) -> Router {
         .route("/secrets/set", post(secrets::create_secret))
         .route("/secrets/get", post(secrets::view_secret))
         .route("/secrets/tags", post(secrets::view_secret))
-        .route("/secrets", post(secrets::view_all_secrets).put(secrets::update_secret).delete(secrets::delete_secret))
+        .route(
+            "/secrets",
+            post(secrets::view_all_secrets)
+                .put(secrets::update_secret)
+                .delete(secrets::delete_secret),
+        )
         .nest("/users", user_router)
         .route("/login", post(auth::login))
         .layer(middleware::from_fn_with_state(

@@ -2,7 +2,6 @@ use axum::{
     body::{Body, HttpBody},
     http::{self, Request, StatusCode},
 };
-use nanoid::nanoid;
 use serde_json::Value;
 use std::net::SocketAddr;
 
@@ -29,30 +28,15 @@ pub async fn create_user_and_log_in(addr: SocketAddr, key: &str) -> String {
     let response = client
         .request(
             Request::builder()
-                .uri(format!("http://{}", addr))
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-    assert_eq!(&body[..], b"Hello, world!");
-
-    let random_name = nanoid!(10);
-
-    let response = client
-        .request(
-            Request::builder()
                 .method(http::Method::POST)
                 .header("Content-Type", "application/json")
-                .header("x-boulder-key", key)
-                .uri(format!("http://{}/users/create", addr))
+                .uri(format!("http://{}/login", addr))
                 .body(Body::from(
-                    serde_json::to_vec(
-                        &serde_json::json!({"name": &random_name, "role": "Guest"}),
-                    )
+                    serde_json::to_vec(&serde_json::json!(
+                    {
+                        "password": "password".to_string()
+                    }
+                    ))
                     .unwrap(),
                 ))
                 .unwrap(),
@@ -60,26 +44,7 @@ pub async fn create_user_and_log_in(addr: SocketAddr, key: &str) -> String {
         .await
         .unwrap();
 
-    let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-    let password = std::str::from_utf8(&body).unwrap();
-
-    println!("{password}");
-
-    let response = client
-        .request(
-            Request::builder()
-                .method(http::Method::POST)
-                .header("Content-Type", "application/json")
-                .uri(format!("http://{}/login", addr))
-                .body(Body::from(
-                    serde_json::to_vec(&serde_json::json!({"password": &password})).unwrap(),
-                ))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-   assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::OK);
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&body).unwrap();

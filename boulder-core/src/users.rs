@@ -1,27 +1,26 @@
 use crate::errors::DatabaseError;
-use serde::{Serialize};
+use serde::Serialize;
 
 #[derive(Clone, sqlx::FromRow, Serialize)]
 pub struct User {
     pub username: String,
-    #[sqlx(skip)]
     pub password: String,
     access_level: i32,
-    roles: Vec<String>
+    roles: Vec<String>,
 }
 
 impl User {
     pub fn new(username: String, password: Option<String>) -> Self {
         let password = match password {
             Some(password) => password,
-            None => nanoid::nanoid!(20)
+            None => nanoid::nanoid!(20),
         };
 
         Self {
-        username,
-        password,
-        access_level: 0,
-        roles: Vec::new()
+            username,
+            password,
+            access_level: 0,
+            roles: Vec::new(),
         }
     }
 
@@ -35,6 +34,10 @@ impl User {
 
     pub fn roles(self) -> Vec<String> {
         self.roles
+    }
+
+    pub fn set_user_rules(&mut self, vec: Vec<String>) {
+        self.roles = vec;
     }
 
     pub fn grant_user_role(mut self, role: String) -> Result<(), DatabaseError> {

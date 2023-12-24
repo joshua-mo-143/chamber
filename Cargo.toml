@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["boulder-cli","boulder-server","boulder-core"]
+members = ["boulder-cli","boulder-core","boulder-server"]
 
 [workspace.dependencies]
 aes-gcm = "0.10.3"
@@ -16,6 +16,4 @@ tower = "0.4.13"
 tracing = "0.1.40"
 typenum = "1.17.0"
 sqlx = { version = "0.7.3", features = ["runtime-tokio-native-tls", "postgres", "macros"] }
-testcontainers-modules = { version = "0.2.0", features = ["postgres"] }
-testcontainers = "0.15.0"
 generic-array = { version = "0.14.7", features = ["zeroize"] }

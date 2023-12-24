@@ -1,23 +1,44 @@
 use crate::errors::DatabaseError;
+use crate::secrets::{EncryptedSecret, SecretInfo};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::secrets::{EncryptedSecret, SecretInfo};
+
+use serde::Deserialize;
 
 use crate::users::User;
 
+#[derive(Deserialize)]
+pub struct CreateSecretParams {
+    pub key: String,
+    pub value: String,
+    pub tags: Option<Vec<String>>,
+    pub access_level: Option<i32>,
+    pub role_whitelist: Option<Vec<String>>,
+}
+
 #[async_trait::async_trait]
 pub trait Database {
-    async fn view_all_secrets(&self, user: User, tag: Option<String>) -> Result<Vec<SecretInfo>, DatabaseError>;
-    async fn view_secret_decrypted(&self, user: User, key: String) -> Result<String, DatabaseError>;
+    async fn view_all_secrets(
+        &self,
+        user: User,
+        tag: Option<String>,
+    ) -> Result<Vec<SecretInfo>, DatabaseError>;
+    async fn view_secret_decrypted(&self, user: User, key: String)
+        -> Result<String, DatabaseError>;
     async fn view_secret(&self, user: User, key: String) -> Result<EncryptedSecret, DatabaseError>;
-    async fn create_secret(&self, key: String, value: String) -> Result<(), DatabaseError>;
-    async fn update_secret(&self, key: String, secret: EncryptedSecret) -> Result<(), DatabaseError>;
+    async fn create_secret(&self, secret: CreateSecretParams) -> Result<(), DatabaseError>;
+    async fn update_secret(
+        &self,
+        key: String,
+        secret: EncryptedSecret,
+    ) -> Result<(), DatabaseError>;
     async fn delete_secret(&self, key: String) -> Result<(), DatabaseError>;
     async fn view_users(&self) -> Result<Vec<User>, DatabaseError>;
     async fn view_user_by_name(&self, id: String) -> Result<User, DatabaseError>;
     async fn get_user_from_password(&self, password: String) -> Result<User, DatabaseError>;
     async fn create_user(&self, name: String) -> Result<String, DatabaseError>;
+    async fn update_user(&self, user: User) -> Result<(), DatabaseError>;
     async fn delete_user(&self, name: String) -> Result<(), DatabaseError>;
     async fn unlock(&self, key: String) -> Result<bool, DatabaseError>;
     async fn is_locked(&self) -> bool;

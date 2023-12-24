@@ -1,8 +1,8 @@
-use clap::Parser;
 use boulder_cli::args::Cli;
 use boulder_cli::commands::parse_cli;
 use boulder_cli::config::AppConfig;
 use boulder_cli::errors::CliError;
+use clap::Parser;
 
 fn main() -> Result<(), CliError> {
     let cfg = AppConfig::get()?;

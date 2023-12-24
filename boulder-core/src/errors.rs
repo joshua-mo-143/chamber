@@ -8,7 +8,7 @@ pub enum DatabaseError {
     Forbidden,
     Utf8Error,
     EncryptionError,
-    SQLError(sqlx::Error)
+    SQLError(sqlx::Error),
 }
 
 impl From<std::str::Utf8Error> for DatabaseError {

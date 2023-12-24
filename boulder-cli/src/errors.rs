@@ -5,7 +5,7 @@ pub enum CliError {
     ConfigError(ConfigError),
     IoError(std::io::Error),
     RequestError(reqwest::Error),
-    PromptError(inquire::error::InquireError)
+    PromptError(inquire::error::InquireError),
 }
 
 impl std::error::Error for CliError {}
@@ -22,19 +22,19 @@ impl fmt::Display for CliError {
 
 impl From<ConfigError> for CliError {
     fn from(err: ConfigError) -> Self {
-        Self::ConfigError(err) 
+        Self::ConfigError(err)
     }
 }
 
 impl From<reqwest::Error> for CliError {
     fn from(err: reqwest::Error) -> Self {
-        Self::RequestError(err) 
+        Self::RequestError(err)
     }
 }
 
 impl From<inquire::error::InquireError> for CliError {
     fn from(err: inquire::error::InquireError) -> Self {
-        Self::PromptError(err) 
+        Self::PromptError(err)
     }
 }
 
@@ -44,12 +44,11 @@ impl From<std::io::Error> for CliError {
     }
 }
 
-
 #[derive(Debug)]
 pub enum ConfigError {
     Deserialization(toml::de::Error),
     Serialization(toml::ser::Error),
-    IoError(std::io::Error)
+    IoError(std::io::Error),
 }
 
 impl std::fmt::Display for ConfigError {
@@ -57,11 +56,10 @@ impl std::fmt::Display for ConfigError {
         match self {
             Self::Deserialization(err) => write!(f, "Config error during deserialization: {err}"),
             Self::Serialization(err) => write!(f, "Config error during serialization: {err}"),
-            Self::IoError(err) => write!(f, "Config error during file I/O: {err}") 
+            Self::IoError(err) => write!(f, "Config error during file I/O: {err}"),
         }
     }
 }
-
 
 impl From<std::io::Error> for ConfigError {
     fn from(err: std::io::Error) -> Self {
