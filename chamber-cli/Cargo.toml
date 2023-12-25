@@ -2,7 +2,8 @@
 name = "chamber-cli"
 version = "0.1.0"
 edition = "2021"
-description = "The core for Chamber, the self-hostable SecretOps service."
+license = "MIT"
+description = "The CLI for Chamber, the self-hostable SecretOps service."
 homepage = "https://www.github.com/joshua-mo-143/chamber"
 documentation = "https://www.github.com/joshua-mo-143/chamber"
 repository = "https://www.github.com/joshua-mo-143/chamber"
@@ -20,7 +21,8 @@ home = "0.5.9"
 reqwest = { version = "0.11.22", features = ["json", "blocking", "multipart"] }
 toml = "0.8.8"
 inquire = "0.6.2"
-chamber-core = { path = "../chamber-core" }
+# chamber-core = { path = "../chamber-core" }
+chamber-core = "0.1.0"
 bincode = { workspace = true }
 aes-gcm = { workspace = true }
 generic-array = { workspace = true }

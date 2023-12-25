@@ -20,17 +20,17 @@ pub enum Commands {
         #[command(subcommand)]
         cmd: UserCommands,
     },
-    /// Commands related to setting/getting the URL for your Boulder instance.
+    /// Commands related to setting/getting the URL for your Chamber instance.
     Website {
         #[command(subcommand)]
         cmd: WebsiteCommands,
     },
-    /// Log in to your Boulder instance.
+    /// Log in to your Chamber instance.
     Login(LoginArgs),
-    /// Commands related to generating keys for your Boulder instance.
+    /// Commands related to generating keys for your Chamber instance.
     Keygen(KeygenArgs),
-    /// Unseal your Boulder instance.
-    Unseal { boulder_key: String },
+    /// Unseal your Chamber instance.
+    Unseal { chamber_key: String },
     Upload(UploadArgs)
 }
 

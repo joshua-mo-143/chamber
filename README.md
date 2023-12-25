@@ -5,7 +5,7 @@ Do you have NIH syndrome? Me too, which is why I made this web service so I can 
 ## Usage
 The easiest way to start using Chamber is via the CLI. Currently there is no package published on crates.io, so you will need to install it using the following:
 ```bash
-cargo install chamber
+cargo install chamber-cli
 ```
 You'll want to then set the URL of your Chamber instance using `chamber website set [VALUE]`.
 

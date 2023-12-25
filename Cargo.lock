@@ -338,77 +338,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "boulder-cli"
-version = "0.0.1"
-dependencies = [
- "aes-gcm",
- "bincode",
- "boulder-core",
- "boulder-server",
- "clap",
- "comfy-table 7.1.0",
- "generic-array",
- "home",
- "inquire",
- "nanoid",
- "reqwest",
- "serde",
- "serde_json",
- "toml",
- "typenum",
-]
-
-[[package]]
-name = "boulder-core"
-version = "0.0.1"
-dependencies = [
- "aes-gcm",
- "async-trait",
- "axum",
- "bincode",
- "chrono",
- "generic-array",
- "hyper",
- "nanoid",
- "serde",
- "serde_bytes",
- "serde_json",
- "sqlx",
- "tokio",
- "tower",
- "tracing",
- "typenum",
- "zeroize",
-]
-
-[[package]]
-name = "boulder-server"
-version = "0.0.1"
-dependencies = [
- "aes-gcm",
- "axum",
- "bincode",
- "boulder-core",
- "chrono",
- "generic-array",
- "headers 0.4.0",
- "hyper",
- "jsonwebtoken",
- "nanoid",
- "once_cell",
- "serde",
- "serde_json",
- "shuttle-axum",
- "shuttle-runtime",
- "shuttle-shared-db",
- "sqlx",
- "tokio",
- "tower",
- "tracing",
- "typenum",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -440,6 +369,101 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+
+[[package]]
+name = "chamber-cli"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "bincode",
+ "chamber-core 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "clap",
+ "comfy-table 7.1.0",
+ "generic-array",
+ "home",
+ "inquire",
+ "nanoid",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "toml",
+ "typenum",
+]
+
+[[package]]
+name = "chamber-core"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "async-trait",
+ "axum",
+ "bincode",
+ "chrono",
+ "generic-array",
+ "hyper",
+ "nanoid",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tower",
+ "tracing",
+ "typenum",
+ "zeroize",
+]
+
+[[package]]
+name = "chamber-core"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fe89be25e9b715d1c143958764afea8a96bc2fcae7581128f81fb0ae01e96ae"
+dependencies = [
+ "aes-gcm",
+ "async-trait",
+ "axum",
+ "bincode",
+ "chrono",
+ "generic-array",
+ "hyper",
+ "nanoid",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tower",
+ "tracing",
+ "typenum",
+ "zeroize",
+]
+
+[[package]]
+name = "chamber-server"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "axum",
+ "bincode",
+ "chamber-core 0.1.0",
+ "chrono",
+ "generic-array",
+ "headers 0.4.0",
+ "hyper",
+ "jsonwebtoken",
+ "nanoid",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "shuttle-axum",
+ "shuttle-runtime",
+ "shuttle-shared-db",
+ "sqlx",
+ "tokio",
+ "tower",
+ "tracing",
+ "typenum",
+]
 
 [[package]]
 name = "chrono"
