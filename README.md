@@ -22,6 +22,7 @@ cargo shuttle init --from joshua-mo-143/chamber --subfolder chamber-server
 You will probably want to use `chamber keygen` to generate a new keyfile and include it in your project root. This will allow you to keep your keyfile persistent across deployments. `shuttle-persist` support is planned to make it easier to persist your keyfiles.
 
 ### Dockerfile Deployment 
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/VS9MIg?referralCode=zFpLxH)
 A dockerfile has been added for your convenience.
 
 The dockerfile takes the `DATABASE_URL` and `PORT` environment variables.
