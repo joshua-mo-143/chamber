@@ -445,7 +445,7 @@ dependencies = [
  "aes-gcm",
  "axum",
  "bincode",
- "chamber-core 0.1.0",
+ "chamber-core 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono",
  "generic-array",
  "headers 0.4.0",

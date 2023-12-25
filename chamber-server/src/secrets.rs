@@ -14,7 +14,7 @@ use crate::auth::Claims;
 use crate::errors::ApiError;
 use crate::state::DynDatabase;
 
-use crate::header::BoulderHeader;
+use crate::header::ChamberHeader;
 use chamber_core::core::CreateSecretParams;
 
 pub async fn create_secret(

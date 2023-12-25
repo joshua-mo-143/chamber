@@ -5,13 +5,13 @@ static CUSTOM_CHAMBER_HEADER: &HeaderName = &X;
 
 pub struct ChamberHeader(String);
 
-impl BoulderHeader {
+impl ChamberHeader {
     pub fn key(self) -> String {
         self.0
     }
 }
 
-impl Header for BoulderHeader {
+impl Header for ChamberHeader {
     fn name() -> &'static HeaderName {
         CUSTOM_CHAMBER_HEADER
     }
