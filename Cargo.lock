@@ -372,11 +372,11 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chamber-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aes-gcm",
  "bincode",
- "chamber-core 0.1.0",
+ "chamber-core 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap",
  "comfy-table 7.1.0",
  "generic-array",
@@ -388,31 +388,6 @@ dependencies = [
  "serde_json",
  "toml",
  "typenum",
-]
-
-[[package]]
-name = "chamber-core"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fe89be25e9b715d1c143958764afea8a96bc2fcae7581128f81fb0ae01e96ae"
-dependencies = [
- "aes-gcm",
- "async-trait",
- "axum",
- "bincode",
- "chrono",
- "generic-array",
- "hyper",
- "nanoid",
- "serde",
- "serde_bytes",
- "serde_json",
- "sqlx",
- "tokio",
- "tower",
- "tracing",
- "typenum",
- "zeroize",
 ]
 
 [[package]]
@@ -439,13 +414,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "chamber-core"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cfcc62b9f847715d5996b37f9fc0add6ac55a8f6cefa38bfb4d16d6df16e699e"
+dependencies = [
+ "aes-gcm",
+ "async-trait",
+ "axum",
+ "bincode",
+ "chrono",
+ "generic-array",
+ "hyper",
+ "nanoid",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tower",
+ "tracing",
+ "typenum",
+ "zeroize",
+]
+
+[[package]]
 name = "chamber-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aes-gcm",
  "axum",
  "bincode",
- "chamber-core 0.1.1",
+ "chamber-core 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono",
  "generic-array",
  "headers 0.4.0",
