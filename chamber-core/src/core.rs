@@ -4,10 +4,16 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::users::User;
 
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthBody {
+    pub access_token: String,
+    pub token_type: String,
+}
 #[derive(Deserialize)]
 pub struct CreateSecretParams {
     pub key: String,

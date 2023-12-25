@@ -1,13 +1,13 @@
 [package]
 name = "chamber-core"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "The core for Chamber, the self-hostable SecretOps service."
 homepage = "https://www.github.com/joshua-mo-143/chamber"
 documentation = "https://www.github.com/joshua-mo-143/chamber"
 repository = "https://www.github.com/joshua-mo-143/chamber"
-readme = "https://www.github.com/joshua-mo-143/chamber"
+readme = "../README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

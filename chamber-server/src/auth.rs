@@ -18,6 +18,8 @@ use crate::state::DynDatabase;
 use aes_gcm::aead::OsRng;
 use aes_gcm::aead::rand_core::RngCore;
 
+use chamber_core::core::AuthBody;
+
 static KEYS: Lazy<Keys> = Lazy::new(|| {
     let mut secret = [0u8; 200];
     OsRng.fill_bytes(&mut secret);
@@ -134,12 +136,6 @@ impl Keys {
 pub struct Claims {
     pub sub: String,
     exp: usize,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AuthBody {
-    pub access_token: String,
-    pub token_type: String,
 }
 
 #[derive(Debug)]

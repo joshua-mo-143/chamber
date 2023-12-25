@@ -1,10 +1,8 @@
 use chamber_core::secrets::SecretInfo;
-use chamber_server::auth::AuthBody;
+use chamber_core::core::AuthBody;
 use comfy_table::Table;
 use inquire::Text;
 use reqwest::StatusCode;
-
-
 
 use crate::errors::CliError;
 
