@@ -6,7 +6,8 @@ use axum::{
     response::{IntoResponse, Response},
     Json, RequestPartsExt,
 };
-use boulder_core::errors::DatabaseError;
+use std::time::{SystemTime};
+use chamber_core::errors::DatabaseError;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -14,10 +15,13 @@ use serde_json::json;
 use std::fmt::Display;
 
 use crate::state::DynDatabase;
+use aes_gcm::aead::OsRng;
+use aes_gcm::aead::rand_core::RngCore;
 
 static KEYS: Lazy<Keys> = Lazy::new(|| {
-    let secret = String::from("Hello world!");
-    Keys::new(secret.as_bytes())
+    let mut secret = [0u8; 200];
+    OsRng.fill_bytes(&mut secret);
+    Keys::new(&secret)
 });
 
 #[derive(Deserialize)]
@@ -39,10 +43,12 @@ pub async fn login(
         Err(e) => return Err(AuthError::WrongCredentials(e)),
     };
 
+    // 24 hour timer
+    let exp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() + 86400; 
     let claims = Claims {
         sub: res.username.to_owned(),
         // Mandatory expiry time as UTC timestamp
-        exp: 2000000000, // May 2033
+        exp: exp.try_into().unwrap(), // May 2033
     };
     // Create the authorization token
     let token = encode(&Header::default(), &claims, &KEYS.encoding)

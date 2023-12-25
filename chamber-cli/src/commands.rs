@@ -1,5 +1,5 @@
-use boulder_core::secrets::SecretInfo;
-use boulder_server::auth::AuthBody;
+use chamber_core::secrets::SecretInfo;
+use chamber_server::auth::AuthBody;
 use comfy_table::Table;
 use inquire::Text;
 use reqwest::StatusCode;
@@ -11,7 +11,7 @@ use crate::errors::CliError;
 use crate::args::{Cli, Commands, SecretsCommands, UserCommands, WebsiteCommands};
 
 use crate::config::AppConfig;
-use boulder_core::secrets::KeyFile;
+use chamber_core::secrets::KeyFile;
 
 pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
     match cli.command {
@@ -23,7 +23,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
                 let website = match cfg.website() {
                     Some(res) => format!("{res}/secrets/get"),
-                    None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+                    None => panic!("You didn't set a URL for a Chamber instance to log into!"),
                 };
 
                 let key = match args.key {
@@ -52,7 +52,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
                 let website = match cfg.website() {
                     Some(res) => format!("{res}/secrets/set"),
-                    None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+                    None => panic!("You didn't set a URL for a Chamber instance to log into!"),
                 };
 
                 let ctx = reqwest::blocking::Client::new();
@@ -78,7 +78,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
                 let website = match cfg.website() {
                     Some(res) => format!("{res}/secrets"),
-                    None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+                    None => panic!("You didn't set a URL for a Chamber instance to log into!"),
                 };
 
                 let ctx = reqwest::blocking::Client::new();
@@ -104,7 +104,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
                 let website = match cfg.website() {
                     Some(res) => format!("{res}/secrets"),
-                    None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+                    None => panic!("You didn't set a URL for a Chamber instance to log into!"),
                 };
 
                 let ctx = reqwest::blocking::Client::new();
@@ -130,7 +130,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
                 let website = match cfg.website() {
                     Some(res) => format!("{res}/secrets"),
-                    None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+                    None => panic!("You didn't set a URL for a Chamber instance to log into!"),
                 };
 
                 let key = match args.key {
@@ -153,39 +153,27 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
             }
         },
         Commands::Keygen(args) => {
-                let website = match cfg.website() {
-                    Some(res) => format!("{res}/init"),
-                    None => panic!("You didn't set a URL for a Boulder instance to log into!"),
-                };
             let key = match args.key {
                 Some(res) => KeyFile::from_key(&res),
                 None => KeyFile::new(),
             };
 
             let encoded = bincode::serialize(&key).unwrap();
-                let ctx = reqwest::blocking::Client::new();
 
-                let res = ctx
-                    .post(website)
-                    .header("Content-Type", "application/json")
-                    .json(&serde_json::json!({"data":encoded}))
-                    .send()?;
+            std::fs::write("chamber.bin", encoded).unwrap();
 
-            match res.status() {
-                StatusCode::OK => {
             println!("Your root key: {}", key.unseal_key());
-            println!("Be sure to keep this key somewhere safe - you won't be able to get it back!");
+            println!("Be sure to keep this file somewhere safe - you won't be able to get it back!");
             println!("---");
-                }
-                _ => println!("Error: {}", res.text().unwrap()) 
+
             } 
-        }
+        
 
         Commands::Users { cmd } => match cmd {
             UserCommands::Create => {
                 let website = match cfg.website() {
                     Some(res) => format!("{res}/users/create"),
-                    None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+                    None => panic!("You didn't set a URL for a Chamber instance to log into!"),
                 };
 
                 let key = Text::new("Please enter your root key:").prompt()?;
@@ -195,13 +183,17 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
                 let res = ctx
                     .post(website)
                     .header("Content-Type", "application/json")
-                    .header("x-boulder-key", key)
+                    .header("x-chamber-key", key)
                     .json(&serde_json::json!({"name":"josh"}))
                     .send()?;
-
-                let body = res.text()?;
-
-                println!("{body}");
+                
+                match res.status() {
+                    StatusCode::CREATED => {
+                println!("Your password is: {}", res.text()?);
+                println!("Make sure you keep it somewhere safe!");
+                    }
+                    _ => {println!("Error: {}", res.text()?)}
+                }
             }
         },
         Commands::Website { cmd } => match cmd {
@@ -224,7 +216,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
             let website = match cfg.to_owned().website() {
                 Some(res) => format!("{res}/login"),
-                None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+                None => panic!("You didn't set a URL for a Chamber instance to log into!"),
             };
 
             let res = ctx
@@ -241,45 +233,57 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
             println!("You've logged in successfully!");
         }
 
-        Commands::Unseal { boulder_key } => {
+        Commands::Unseal { chamber_key } => {
             let ctx = reqwest::blocking::Client::new();
 
             let website = match cfg.to_owned().website() {
                 Some(res) => format!("{res}/unseal"),
-                None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+                None => panic!("You didn't set a URL for a Chamber instance to log into!"),
             };
 
             let res = ctx
                 .post(website)
                 .header("Content-Type", "application/json")
-                .header("x-boulder-key", boulder_key)
+                .header("x-chamber-key", chamber_key)
                 .send()?;
 
             match res.status() {
-                StatusCode::OK => println!("The database has been unsealed and is ready to use!"),
+                StatusCode::OK => println!("The instance has been unsealed and is ready to use!"),
                 _ => {
                     println!("{}", res.text()?);
                 }
             }
         }
-        Commands::Reset => {
+        Commands::Upload(args) => {
+            let key = match args.key {
+                Some(res) => res,
+                None => Text::new("Please enter your root key:").prompt()?,
+            };
             let ctx = reqwest::blocking::Client::new();
 
             let website = match cfg.to_owned().website() {
                 Some(res) => format!("{res}/binfile"),
-                None => panic!("You didn't set a URL for a Boulder instance to log into!"),
+                None => panic!("You didn't set a URL for a Chamber instance to log into!"),
             };
 
-            let file = std::fs::File::open("boulder.bin")?;
+            let file = std::fs::read("chamber.bin")?;
+
+            let form = reqwest::blocking::multipart::Form::new();
+            let file_as_bytes = reqwest::blocking::multipart::Part::bytes(file);
+
+            let form = form.part("file", file_as_bytes);
 
             let res = ctx
                 .post(website)
-                .header("Content-Type", "multipart/form-data")
-                .body(file)
+                .header("x-chamber-key", key)
+                .multipart(form)
                 .send()?;
 
             match res.status() {
-                StatusCode::OK => println!("The database has been reset!"),
+                StatusCode::OK => {
+                    println!("The new crypto key and root key have been uploaded!");
+                    println!("Note that any previous secrets you stored will need to be re-uploaded.");
+                }
                 _ => {
                     println!("{}", res.text()?);
                 }

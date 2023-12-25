@@ -15,7 +15,7 @@ use crate::errors::ApiError;
 use crate::state::DynDatabase;
 
 use crate::header::BoulderHeader;
-use boulder_core::core::CreateSecretParams;
+use chamber_core::core::CreateSecretParams;
 
 pub async fn create_secret(
     State(db): State<DynDatabase>,
@@ -110,13 +110,15 @@ pub async fn upload_binfile(
 
         std::fs::write("boulder.bin", data).unwrap();
     }  
+
+    println!("NEW BOULDER FILE UPLOADED");
     
     Ok(StatusCode::OK)
 }
 
 pub async fn unlock(
     State(state): State<DynDatabase>,
-    TypedHeader(auth): TypedHeader<BoulderHeader>,
+    TypedHeader(auth): TypedHeader<ChamberHeader>,
 ) -> Result<impl IntoResponse, ApiError> {
     match state.unlock(auth.key()).await {
         Ok(true) => Ok(StatusCode::OK),

@@ -31,7 +31,7 @@ pub enum Commands {
     Keygen(KeygenArgs),
     /// Unseal your Boulder instance.
     Unseal { boulder_key: String },
-    Reset
+    Upload(UploadArgs)
 }
 
 #[derive(Parser, Clone)]
@@ -92,4 +92,10 @@ pub enum WebsiteCommands {
     Get,
     /// Set the current URL
     Set { value: String },
+}
+
+#[derive(Parser, Clone)]
+pub struct UploadArgs {
+    #[arg(long, short)]
+    pub key: Option<String>
 }

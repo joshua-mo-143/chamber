@@ -1,9 +1,9 @@
 use axum::headers::{Header, HeaderName, HeaderValue};
 
-static X: HeaderName = HeaderName::from_static("x-boulder-key");
-static CUSTOM_BOULDER_HEADER: &HeaderName = &X;
+static X: HeaderName = HeaderName::from_static("x-chamber-key");
+static CUSTOM_CHAMBER_HEADER: &HeaderName = &X;
 
-pub struct BoulderHeader(String);
+pub struct ChamberHeader(String);
 
 impl BoulderHeader {
     pub fn key(self) -> String {
@@ -13,7 +13,7 @@ impl BoulderHeader {
 
 impl Header for BoulderHeader {
     fn name() -> &'static HeaderName {
-        CUSTOM_BOULDER_HEADER
+        CUSTOM_CHAMBER_HEADER
     }
 
     fn decode<'i, I>(values: &mut I) -> Result<Self, axum::headers::Error>

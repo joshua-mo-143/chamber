@@ -1,25 +1,39 @@
-# boulder: A self-hostable credentials manager web service.
+# chamber: A self-hostable SecretOps service.
 
-Do you have NIH syndrome? Me too, which is why I made this web service so I can stop paying £2.99 a month for 1Password.
+Do you have NIH syndrome? Me too, which is why I made this web service so I can avoid the complexity of having to use Hashicorp Vault.
 
-## How Boulder works
-There are several moving parts to Boulder:
-- A web server that has can be unlocked and locked as required
-- A command-line interface that serves as the current primary way to interact with a Boulder server
-- The core (which holds methods for storing data, encryption and decryption, and other misc things)
+## Usage
+The easiest way to start using Chamber is via the CLI. Currently there is no package published on crates.io, so you will need to install it using the following:
+```bash
+cargo install chamber
+```
+You'll want to then set the URL of your Chamber instance using `chamber website set [VALUE]`.
 
-## Deployment
-Currently boulder only supports deployment through Shuttle, but Dockerfile deployments should be getting added shortly.
+Initially when you load up the web service, a root key will be auto generated for you that you can find in the logs. You will need to use this key to unseal the web service using `chamber unseal [VALUE]`. 
+
+Once this is done, you can then generate a `chamber.bin` file using `chamber keygen` and use `chamber upload` to upload the new keyfile to the web service to reset your seal key (and cryptographic key)!
+
+### Deployment to Shuttle 
+To deploy this as a Shuttle service, run the following:
+```bash
+cargo shuttle init --from joshua-mo-143/chamber --subfolder chamber-server
+```
+
+You will probably want to use `chamber keygen` to generate a new keyfile and include it in your project root. This will allow you to keep your keyfile persistent across deployments. `shuttle-persist` support is planned to make it easier to persist your keyfiles.
+
+### Dockerfile Deployment 
+A dockerfile has been added for your convenience.
+
+The dockerfile takes the `DATABASE_URL` and `PORT` environment variables.
 
 ## Features
-- Seal/unseal and timed unseal feature
-	- The web service initially starts out as locked and cannot be accessed unless you unseal it by using the master key given to you when you first create the web service.
-- Basic IAM system
-	- Create users and assign them roles. Lock credential usability either by role or by username.
-	- Users can only grab credentials by either using the API with the custom header or the CLI, and must log in through the CLI first to be able to get a key.
-- Entirely self sufficient - no database required!
-	- An in-memory database is currently implemented but a file storage implementation is on the roadmap, because nobody hates themselves enough to use a fully in-memory only implementation of a credentials manager... right? Right.
-	- However, Postgres is aimed to be supported because everyone and their mom can get one these days and they are pretty cheap. Plus, persistent external storage is pretty good.
+- Store your secrets in a self-hostable web server
+- Lock and unlock using 
+- Encrypt your secrets using AES-256-GCM 
+- IAM system that allows you to lock secrets by role whitelist and power level
+- Categorise your secrets easily using tags
+- Postgres backend (multiple backends to be supported in future)
+- Written in Rust 
 
 ## Roadmap for v0.1.0
 - [x] CLI
@@ -28,26 +42,30 @@ Currently boulder only supports deployment through Shuttle, but Dockerfile deplo
 	- [x] Sign in
 	- [x] Create/delete users 
 	- [x] Set/get secrets
-	- [ ] Remove secrets
-	- [ ] Table output
-	- [ ] Generate a pre-made crypto key to use in web service
+	- [x] Remove secrets
+	- [x] Table output
+	- [x] Generate a pre-made cryptokey file to use in web service
+	- [x] Basic key rotation (to be improved)
 - [x] Web service
 	- [x] JWT auth
 	- [x] Unsealing route
 	- [x] Set/get/remove secrets
+	- [x] Secrets access-level requirement and role whitelist
 	- [x] Create/delete users
-- [x] KV in-memory database
-	- [x] AES-256-GCM en/decryption
-	- [x] Seal/unseal using API key
-	- [x] Basic IAM system
-	- [ ] Secrets grouping
+	- [x] User roles/access level
+	- [x] Persisting cryptokey through file
 - [x] Postgres database
 	- [x] AES-256-GCM en/decryption
 	- [x] Seal/unseal using API key
 	- [x] Basic IAM system
-	- [ ] Secrets grouping
+	- [x] Secrets grouping
 
 ## Long(er) Term Roadmap
 - Logging/tracing
 - SDK
-- Github Actions for retrieving secrets from a Boulder instance
+
+## How Chamber works
+There are several moving parts to Chamber:
+- A web server that has can be unlocked and locked as required
+- A command-line interface that serves as the current primary way to interact with a Chamber server
+- The core (which holds methods for storing data, encryption and decryption, and other misc things)

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["boulder-cli","boulder-core","boulder-server"]
+members = ["chamber-cli","chamber-core","chamber-server"]
 
 [workspace.dependencies]
 aes-gcm = "0.10.3"

@@ -2,9 +2,9 @@ use axum::{extract::State, http::StatusCode, response::IntoResponse, Json, Typed
 use serde::Deserialize;
 
 use crate::errors::ApiError;
-use crate::header::BoulderHeader;
+use crate::header::ChamberHeader;
 use crate::state::DynDatabase;
-use boulder_core::users::User;
+use chamber_core::users::User;
 
 #[derive(Deserialize)]
 pub struct UserParams {
@@ -27,7 +27,7 @@ pub struct UserRoleParams {
 
 pub async fn create_user(
     State(state): State<DynDatabase>,
-    TypedHeader(_auth): TypedHeader<BoulderHeader>,
+    TypedHeader(_auth): TypedHeader<ChamberHeader>,
     Json(CreateUserParams { name, .. }): Json<CreateUserParams>,
 ) -> Result<impl IntoResponse, ApiError> {
     let res = state.create_user(name).await?;
@@ -37,7 +37,7 @@ pub async fn create_user(
 
 pub async fn delete_user(
     State(state): State<DynDatabase>,
-    TypedHeader(_auth): TypedHeader<BoulderHeader>,
+    TypedHeader(_auth): TypedHeader<ChamberHeader>,
     Json(UserParams { name }): Json<UserParams>,
 ) -> Result<StatusCode, ApiError> {
     state.delete_user(name).await?;
@@ -47,7 +47,7 @@ pub async fn delete_user(
 
 pub async fn view_user_roles(
     State(state): State<DynDatabase>,
-    TypedHeader(_auth): TypedHeader<BoulderHeader>,
+    TypedHeader(_auth): TypedHeader<ChamberHeader>,
     Json(UserParams { name }): Json<UserParams>,
 ) -> Result<Json<User>, ApiError> {
     let res = state.view_user_by_name(name).await?;
@@ -57,7 +57,7 @@ pub async fn view_user_roles(
 
 pub async fn grant_user_role(
     State(state): State<DynDatabase>,
-    TypedHeader(_auth): TypedHeader<BoulderHeader>,
+    TypedHeader(_auth): TypedHeader<ChamberHeader>,
     Json(UserRoleParams { name, role }): Json<UserRoleParams>,
 ) -> Result<StatusCode, ApiError> {
     let user = state.view_user_by_name(name).await?;
@@ -69,7 +69,7 @@ pub async fn grant_user_role(
 
 pub async fn revoke_user_role(
     State(state): State<DynDatabase>,
-    TypedHeader(_auth): TypedHeader<BoulderHeader>,
+    TypedHeader(_auth): TypedHeader<ChamberHeader>,
     Json(UserRoleParams { name, role }): Json<UserRoleParams>,
 ) -> Result<StatusCode, ApiError> {
     let user = state.view_user_by_name(name).await?;

@@ -1,7 +1,7 @@
-use boulder_cli::args::Cli;
-use boulder_cli::commands::parse_cli;
-use boulder_cli::config::AppConfig;
-use boulder_cli::errors::CliError;
+use chamber_cli::args::Cli;
+use chamber_cli::commands::parse_cli;
+use chamber_cli::config::AppConfig;
+use chamber_cli::errors::CliError;
 use clap::Parser;
 
 fn main() -> Result<(), CliError> {
