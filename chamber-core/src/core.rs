@@ -8,12 +8,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::users::User;
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthBody {
     pub access_token: String,
     pub token_type: String,
 }
+
+impl AuthBody {
+    pub fn new(access_token: String) -> Self {
+        Self {
+            access_token,
+            token_type: "Bearer".to_string(),
+        }
+    }
+}
+
 #[derive(Deserialize)]
 pub struct CreateSecretParams {
     pub key: String,

@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use boulder_core::errors::DatabaseError;
+use chamber_core::errors::DatabaseError;
 
 pub enum ApiError {
     Forbidden,

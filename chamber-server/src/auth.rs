@@ -66,15 +66,6 @@ impl Display for Claims {
     }
 }
 
-impl AuthBody {
-    fn new(access_token: String) -> Self {
-        Self {
-            access_token,
-            token_type: "Bearer".to_string(),
-        }
-    }
-}
-
 #[async_trait]
 impl<S> FromRequestParts<S> for Claims
 where

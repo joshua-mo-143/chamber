@@ -22,7 +22,7 @@ impl Header for ChamberHeader {
     {
         let value = values.next().ok_or_else(axum::headers::Error::invalid)?;
 
-        Ok(BoulderHeader(value.to_str().unwrap().to_owned()))
+        Ok(ChamberHeader(value.to_str().unwrap().to_owned()))
     }
 
     fn encode<E>(&self, values: &mut E)
