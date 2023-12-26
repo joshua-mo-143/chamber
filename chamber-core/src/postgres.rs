@@ -7,36 +7,23 @@ use aes_gcm::{
     Aes256Gcm,
 };
 use nanoid::nanoid;
-use crate::core::CreateSecretParams;
 use sqlx::PgPool;
 
 use crate::core::LockedStatus;
 use crate::secrets::SecretInfo;
 
 #[derive(Clone)]
-pub struct Postgres {
-    pub pool: PgPool,
-    pub lock: LockedStatus,
-}
+pub struct Postgres(pub PgPool);
 
 impl Postgres {
     pub fn from_pool(pool: PgPool) -> Self {
-        Self {
-            pool,
-            lock: LockedStatus::default(),
-        }
+        Self(pool)
     }
 }
 
 #[async_trait::async_trait]
 impl Database for Postgres {
-    async fn create_secret(&self, secret: CreateSecretParams) -> Result<(), DatabaseError> {
-        let keyfile = self.get_key_data();
-
-        let mut new_secret = EncryptedSecret::new(keyfile.crypto_key(), secret.key, secret.value);
-        new_secret.set_access_level(secret.access_level);
-        new_secret.clone().add_tags(secret.tags);
-        new_secret.set_role_whitelist(secret.role_whitelist);
+    async fn create_secret(&self, new_secret: EncryptedSecret) -> Result<(), DatabaseError> {
         // you might need to convert to Vec<u8> here for the Nonce
         sqlx::query(
             "INSERT INTO SECRETS 
@@ -44,13 +31,13 @@ impl Database for Postgres {
                     VALUES
                     ($1, $2, $3, $4, $5, $6)",
         )
-        .bind(new_secret.clone().key)
-        .bind(new_secret.clone().nonce_as_u8())
-        .bind(new_secret.clone().ciphertext)
-        .bind(new_secret.clone().tags())
+        .bind(new_secret.key())
+        .bind(new_secret.nonce_as_u8())
+        .bind(new_secret.ciphertext())
+        .bind(new_secret.tags())
         .bind(new_secret.access_level())
         .bind(new_secret.role_whitelist())
-        .execute(&self.pool)
+        .execute(&self.0)
         .await?;
 
         Ok(())
@@ -73,7 +60,7 @@ impl Database for Postgres {
         )
         .bind(tag)
         .bind(user.access_level())
-        .fetch_all(&self.pool)
+        .fetch_all(&self.0)
         .await?;
 
         Ok(retrieved_keys)
@@ -88,7 +75,7 @@ impl Database for Postgres {
         sqlx::query("UPDATE secrets SET tags = $1 WHERE key = $2")
             .bind(secret.tags())
             .bind(key)
-            .execute(&self.pool)
+            .execute(&self.0)
             .await?;
 
         Ok(())
@@ -96,11 +83,11 @@ impl Database for Postgres {
 
     async fn view_secret(&self, user: User, key: String) -> Result<EncryptedSecret, DatabaseError> {
         let retrieved_key = sqlx::query_as::<_, EncryptedSecret>(
-            "SELECT nonce, ciphertext, tags FROM secrets WHERE key = $1 AND $2 >= access_level",
+            "SELECT key, nonce, ciphertext, tags, access_level, role_whitelist FROM secrets WHERE key = $1 AND $2 >= access_level",
         )
         .bind(key)
         .bind(user.access_level())
-        .fetch_one(&self.pool)
+        .fetch_one(&self.0)
         .await?;
 
         Ok(retrieved_key)
@@ -110,7 +97,7 @@ impl Database for Postgres {
         &self,
         user: User,
         key: String,
-    ) -> Result<String, DatabaseError> {
+    ) -> Result<Secret, DatabaseError> {
         let retrieved_key = sqlx::query_as::<_, Secret>(
             "SELECT nonce, ciphertext FROM secrets WHERE 
             key = $1 
@@ -125,30 +112,23 @@ impl Database for Postgres {
         .bind(key)
         .bind(user.access_level())
         .bind(user.roles())
-        .fetch_one(&self.pool)
+        .fetch_one(&self.0)
         .await?;
 
-        let keyfile = self.get_key_data();
-        let key = Aes256Gcm::new(&keyfile.crypto_key());
-        let plaintext = key.decrypt(&retrieved_key.nonce.0, retrieved_key.ciphertext.as_ref())?;
-
-        let text_str = std::str::from_utf8(&plaintext)?;
-
-        let string = String::from(text_str);
-        Ok(string)
+        Ok(retrieved_key)
     }
 
     async fn delete_secret(&self, key: String) -> Result<(), DatabaseError> {
         sqlx::query("DELETE FROM secrets WHERE key = $1")
             .bind(key)
-            .execute(&self.pool)
+            .execute(&self.0)
             .await?;
 
         Ok(())
     }
     async fn view_users(&self) -> Result<Vec<User>, DatabaseError> {
         let query = sqlx::query_as::<_, User>("SELECT username, role FROM USERS")
-            .fetch_all(&self.pool)
+            .fetch_all(&self.0)
             .await?;
 
         Ok(query)
@@ -159,7 +139,7 @@ impl Database for Postgres {
             "SELECT username, password, access_level, roles FROM USERS WHERE USERNAME = $1",
         )
         .bind(username)
-        .fetch_one(&self.pool)
+        .fetch_one(&self.0)
         .await?;
 
         Ok(query)
@@ -170,7 +150,7 @@ impl Database for Postgres {
             "SELECT username, password, access_level, roles FROM users WHERE PASSWORD = $1",
         )
         .bind(password)
-        .fetch_one(&self.pool)
+        .fetch_one(&self.0)
         .await?;
 
         Ok(query)
@@ -186,7 +166,7 @@ impl Database for Postgres {
         )
         .bind(name)
         .bind(password)
-        .fetch_one(&self.pool)
+        .fetch_one(&self.0)
         .await?;
 
         Ok(query.0)
@@ -204,7 +184,7 @@ impl Database for Postgres {
         .bind(user.access_level())
         .bind(user.clone().roles())
         .bind(user.username)
-        .execute(&self.pool)
+        .execute(&self.0)
         .await?;
 
         Ok(())
@@ -213,35 +193,10 @@ impl Database for Postgres {
     async fn delete_user(&self, name: String) -> Result<(), DatabaseError> {
         sqlx::query("DELETE FROM USERS WHERE USERNAME = $1")
             .bind(name)
-            .execute(&self.pool)
+            .execute(&self.0)
             .await?;
 
         Ok(())
-    }
-
-    async fn unlock(&self, key: String) -> Result<bool, DatabaseError> {
-        let keyfile = self.get_key_data();
-
-        if key != keyfile.unseal_key() {
-            return Err(DatabaseError::Forbidden);
-        }
-
-        let mut state = self.lock.is_sealed.lock().await;
-
-        *state = false;
-
-        Ok(true)
-    }
-    async fn is_locked(&self) -> bool {
-        let state = self.lock.is_sealed.lock().await;
-
-        *state
-    }
-
-    fn get_root_key(&self) -> String {
-        let keyfile = self.get_key_data();
-
-        keyfile.unseal_key()
     }
 }
 

@@ -29,3 +29,4 @@ tracing = { workspace = true }
 typenum = { workspace = true }
 zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
 serde_bytes = "0.11.12"
+shuttle-persist = "0.35.2"

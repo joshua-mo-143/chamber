@@ -1,12 +1,13 @@
 use chamber_server::router::init_router;
-use chamber_server::state::DynDatabase;
+
 
 use chamber_core::secrets::KeyFile;
 
 use std::net::SocketAddr;
-use std::sync::Arc;
+
 use sqlx::postgres::PgPoolOptions;
 use chamber_core::postgres::Postgres;
+use chamber_core::core::LockedStatus;
 
 #[tokio::main]
 async fn main() {
@@ -23,7 +24,9 @@ async fn main() {
     
     sqlx::migrate!().run(&db).await.unwrap();
 
-    let pg = Postgres::from_pool(db);
+    let db = Postgres::from_pool(db);
+
+    let state = chamber_core::traits::RegularAppState { db, lock: LockedStatus::default()}; 
 
     if std::fs::read("chamber.bin").is_err() {
         println!("No chamber.bin file attached, generating one now...");
@@ -35,7 +38,6 @@ async fn main() {
         println!("Successfully saved. Don't forget that you can generate a new chamber file from the CLI and upload it!");
     }
 
-    let state = Arc::new(pg) as DynDatabase;
     let router = init_router(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));

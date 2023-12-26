@@ -3,7 +3,7 @@
 Do you have NIH syndrome? Me too, which is why I made this web service so I can avoid the complexity of having to use Hashicorp Vault.
 
 ## Usage
-The easiest way to start using Chamber is via the CLI. Currently there is no package published on crates.io, so you will need to install it using the following:
+The easiest way to start using Chamber is via the CLI. You will need to install it using the following:
 ```bash
 cargo install chamber-cli
 ```
@@ -29,37 +29,16 @@ The dockerfile takes the `DATABASE_URL` and `PORT` environment variables.
 
 ## Features
 - Store your secrets in a self-hostable web server
-- Lock and unlock using 
+- Lock and unlock your instance using root key 
 - Encrypt your secrets using AES-256-GCM 
 - IAM system that allows you to lock secrets by role whitelist and power level
 - Categorise your secrets easily using tags
 - Postgres backend (multiple backends to be supported in future)
 - Written in Rust 
 
-## Roadmap for v0.1.0
-- [x] CLI
-	- [x] Config
-	- [x] Unseal
-	- [x] Sign in
-	- [x] Create/delete users 
-	- [x] Set/get secrets
-	- [x] Remove secrets
-	- [x] Table output
-	- [x] Generate a pre-made cryptokey file to use in web service
-	- [x] Basic key rotation (to be improved)
-- [x] Web service
-	- [x] JWT auth
-	- [x] Unsealing route
-	- [x] Set/get/remove secrets
-	- [x] Secrets access-level requirement and role whitelist
-	- [x] Create/delete users
-	- [x] User roles/access level
-	- [x] Persisting cryptokey through file
-- [x] Postgres database
-	- [x] AES-256-GCM en/decryption
-	- [x] Seal/unseal using API key
-	- [x] Basic IAM system
-	- [x] Secrets grouping
+## Future short-term features
+- Secrets will be encrypted and signed (with PFS)
+
 
 ## Long(er) Term Roadmap
 - Logging/tracing

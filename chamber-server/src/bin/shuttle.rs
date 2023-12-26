@@ -2,16 +2,18 @@ use chamber_core::postgres::Postgres;
 
 use chamber_core::secrets::KeyFile;
 use chamber_server::router::init_router;
-use chamber_server::state::DynDatabase;
+
 use sqlx::PgPool;
-use std::sync::Arc;
+
+use chamber_core::core::LockedStatus;
 
 #[shuttle_runtime::main]
 async fn main(#[shuttle_shared_db::Postgres] db: PgPool) -> shuttle_axum::ShuttleAxum {
     sqlx::migrate!().run(&db).await.unwrap();
 
-    let pg = Postgres::from_pool(db);
+    let db = Postgres::from_pool(db);
 
+    let state = chamber_core::traits::RegularAppState { db, lock: LockedStatus::default()}; 
     if std::fs::read("chamber.bin").is_err() {
         println!("No chamber.bin file attached, generating one now...");
         let key = KeyFile::new();
@@ -22,7 +24,6 @@ async fn main(#[shuttle_shared_db::Postgres] db: PgPool) -> shuttle_axum::Shuttl
         println!("Successfully saved. Don't forget that you can generate a new chamber file from the CLI and upload it!");
     }
 
-    let state = Arc::new(pg) as DynDatabase;
     let router = init_router(state);
 
     Ok(router.into())

@@ -1,5 +1,5 @@
 use crate::errors::DatabaseError;
-use crate::secrets::{EncryptedSecret, SecretInfo, KeyFile};
+use crate::secrets::{EncryptedSecret, SecretInfo, KeyFile, Secret};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -40,9 +40,9 @@ pub trait Database {
         tag: Option<String>,
     ) -> Result<Vec<SecretInfo>, DatabaseError>;
     async fn view_secret_decrypted(&self, user: User, key: String)
-        -> Result<String, DatabaseError>;
+        -> Result<Secret, DatabaseError>;
     async fn view_secret(&self, user: User, key: String) -> Result<EncryptedSecret, DatabaseError>;
-    async fn create_secret(&self, secret: CreateSecretParams) -> Result<(), DatabaseError>;
+    async fn create_secret(&self, secret: EncryptedSecret) -> Result<(), DatabaseError>;
     async fn update_secret(
         &self,
         key: String,
@@ -55,15 +55,6 @@ pub trait Database {
     async fn create_user(&self, name: String) -> Result<String, DatabaseError>;
     async fn update_user(&self, user: User) -> Result<(), DatabaseError>;
     async fn delete_user(&self, name: String) -> Result<(), DatabaseError>;
-    async fn unlock(&self, key: String) -> Result<bool, DatabaseError>;
-    async fn is_locked(&self) -> bool;
-    fn get_root_key(&self) -> String;
-    fn get_key_data(&self) -> KeyFile {
-            let file = std::fs::read("boulder.bin").unwrap();
-            let keyfile: KeyFile = bincode::deserialize(&file).unwrap();
-
-            keyfile
-    }
 }
 
 #[derive(Clone)]
@@ -84,5 +75,18 @@ impl LockedStatus {
             is_sealed: Arc::new(Mutex::new(true)),
             relock_datetime: None,
         }
+    }
+    pub async fn unlock(&self) -> Result<bool, DatabaseError> {
+        let mut state = self.is_sealed.lock().await;
+
+        *state = false;
+
+        Ok(true)
+    }
+
+    pub async fn is_locked(&self) -> bool {
+        let state = self.is_sealed.lock().await;
+
+        *state
     }
 }

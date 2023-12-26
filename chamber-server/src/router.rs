@@ -5,9 +5,12 @@ use axum::{
     Router,
 };
 
-use crate::state::DynDatabase;
+use std::sync::Arc;
+use chamber_core::traits::AppState;
 
-pub fn init_router(state: DynDatabase) -> Router {
+pub fn init_router<S: AppState>(state: S) -> Router {
+    let state = Arc::new(state);
+
     let user_router = Router::new()
         .route("/create", post(users::create_user))
         .route("/delete", delete(users::delete_user))

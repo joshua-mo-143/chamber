@@ -405,6 +405,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
+ "shuttle-persist",
  "sqlx",
  "tokio",
  "tower",
@@ -445,7 +446,7 @@ dependencies = [
  "aes-gcm",
  "axum",
  "bincode",
- "chamber-core 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chamber-core 0.1.1",
  "chrono",
  "generic-array",
  "headers 0.4.0",
@@ -2477,9 +2478,9 @@ dependencies = [
 
 [[package]]
 name = "shuttle-common"
-version = "0.35.1"
+version = "0.35.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e1ba1b036ce303eba6982c7a9d43021d121ccba84db43c3c264f8bf22b6bdb7"
+checksum = "774cf8a2f4bfa3d81d286a2f90fcd9fdfafc0526470ed575c1245aa9ddc3137f"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2517,6 +2518,19 @@ dependencies = [
  "url",
  "uuid",
  "zeroize",
+]
+
+[[package]]
+name = "shuttle-persist"
+version = "0.35.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6752dff13fb12e98bbf79fdcfc1555956f0ab48e3b53955cb35c4d94097c14d"
+dependencies = [
+ "async-trait",
+ "bincode",
+ "serde",
+ "shuttle-service",
+ "thiserror",
 ]
 
 [[package]]
@@ -2560,9 +2574,9 @@ dependencies = [
 
 [[package]]
 name = "shuttle-service"
-version = "0.35.1"
+version = "0.35.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46d7b998a1137b4aa55190549b1ab71c5c834531776358599925ed23c27e4b86"
+checksum = "7341769b2e27c2a6175ee71a041f7d0479c122d809fd8ab06c62864ff8fe362d"
 dependencies = [
  "anyhow",
  "async-trait",

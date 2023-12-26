@@ -13,12 +13,14 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt::Display;
+use std::sync::Arc;
 
-use crate::state::DynDatabase;
+
 use aes_gcm::aead::OsRng;
 use aes_gcm::aead::rand_core::RngCore;
-
+use chamber_core::core::Database;
 use chamber_core::core::AuthBody;
+use chamber_core::traits::AppState;
 
 static KEYS: Lazy<Keys> = Lazy::new(|| {
     let mut secret = [0u8; 200];
@@ -31,10 +33,11 @@ pub struct UserLoginParams {
     password: String,
 }
 
-pub async fn login(
-    State(state): State<DynDatabase>,
+pub async fn login<S: AppState>(
+    State(state): State<Arc<S>>,
     Json(user): Json<UserLoginParams>,
 ) -> Result<(StatusCode, Json<AuthBody>), AuthError> {
+    let state = state.db();
     // Check if the user sent the credentials
     if user.password.is_empty() {
         return Err(AuthError::MissingCredentials);

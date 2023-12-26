@@ -1,6 +1,6 @@
-use boulder_core::postgres::Postgres;
-use boulder_server::router::init_router;
-use boulder_server::state::DynDatabase;
+use chamber_core::postgres::Postgres;
+use chamber_server::router::init_router;
+use chamber_server::state::DynDatabase;
 mod common;
 
 #[cfg(test)]

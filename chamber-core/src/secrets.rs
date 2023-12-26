@@ -7,11 +7,12 @@ use generic_array::typenum::{U12, U32};
 use generic_array::GenericArray;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_bytes::ByteBuf;
+use sqlx::postgres::PgRow;
+use sqlx::FromRow;
+use sqlx::Row;
 
-#[derive(sqlx::FromRow, Clone)]
 pub struct EncryptedSecret {
     pub key: String,
-    #[sqlx(try_from = "Vec<u8>")]
     nonce: Nonce,
     pub ciphertext: Vec<u8>,
     tags: Vec<String>,
@@ -19,7 +20,85 @@ pub struct EncryptedSecret {
     role_whitelist: Vec<String>,
 }
 
-#[derive(sqlx::FromRow, Clone)]
+
+impl<'a> FromRow<'a, PgRow> for EncryptedSecret {
+    fn from_row(row: &PgRow) -> sqlx::Result<Self> {
+        let vec: Vec<u8> = row.try_get("nonce")?;
+        let nonce: GenericArray<u8, U12> = *GenericArray::from_slice(&vec[..]);
+
+        let nonce = Nonce(nonce);
+
+        Ok(Self {
+            key: row.try_get("key")?,
+            nonce, 
+            ciphertext: row.try_get("ciphertext")?,
+            tags: row.try_get("tags")?,
+            access_level: row.try_get("access_level")?,
+            role_whitelist: row.try_get("role_whitelist")?,
+            }
+        )
+    }
+}
+
+#[derive(sqlx::FromRow, Clone, Default)]
+pub struct EncryptedSecretBuilder {
+    pub key: String,
+    value: String,
+    tags: Option<Vec<String>>,
+    access_level: Option<i32>,
+    role_whitelist: Option<Vec<String>>,
+}
+
+impl EncryptedSecretBuilder {
+    pub fn new(key: String, value: String) -> Self {
+        Self {
+            key,
+            value,
+            .. Default::default()
+        }
+    }
+
+    pub fn with_tags(mut self, tags: Option<Vec<String>>) -> Self {
+        if let Some(tags) = tags {
+        self.tags = Some(tags);
+        }
+        self
+    }
+
+    pub fn with_access_level(mut self, access_level: Option<i32>) -> Self {
+        if let Some(access_level) = access_level {
+        self.access_level = Some(access_level);
+        }
+        self
+    }
+
+    pub fn with_whitelist(mut self, role_whitelist: Option<Vec<String>>) -> Self {
+        if let Some(role_whitelist) = role_whitelist {
+        self.role_whitelist = Some(role_whitelist);
+        }
+        self
+    }
+
+    pub fn build(self, key: Key<Aes256Gcm>) -> EncryptedSecret { 
+        let cipher = Aes256Gcm::new(&key);
+
+        let nonce = Aes256Gcm::generate_nonce(&mut OsRng); // 96-bits; unique per message
+        let ciphertext = cipher.encrypt(&nonce, self.value.as_ref()).unwrap();
+
+        EncryptedSecret {
+           key: self.key,
+           nonce: Nonce(nonce),
+           ciphertext,
+           tags: if let Some(tags) = self.tags {    
+                tags
+           } else {Vec::new()},
+           access_level: if let Some(access_level) = self.access_level {access_level} else {0},
+           role_whitelist: if let Some(whitelist) = self.role_whitelist {whitelist} else {Vec::new()}
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
 pub struct Secret {
     #[sqlx(try_from = "Vec<u8>")]
     pub nonce: Nonce,
@@ -34,65 +113,41 @@ pub struct SecretInfo {
     pub role_whitelist: Vec<String>,
 }
 
-impl SecretInfo {
-    pub fn from_encrypted(es: EncryptedSecret, key: String) -> Self {
-        Self {
-            key,
-            tags: es.clone().tags(),
-            access_level: es.access_level(),
-            role_whitelist: es.role_whitelist(),
-        }
-    }
-}
-
-impl EncryptedSecret {
-    pub fn new(cipher_key: Key<Aes256Gcm>, key: String, val: String) -> Self {
-        let cipher = Aes256Gcm::new(&cipher_key);
-
-        let nonce = Aes256Gcm::generate_nonce(&mut OsRng); // 96-bits; unique per message
-        let ciphertext = cipher.encrypt(&nonce, val.as_ref()).unwrap();
-
-        Self {
-            key,
-            nonce: Nonce(nonce),
-            ciphertext,
-            tags: Vec::new(),
-            access_level: 0,
-            role_whitelist: Vec::new(),
-        }
+impl<'a> EncryptedSecret {
+    pub fn key(&'a self) -> &'a str {
+        &self.key
     }
 
     pub fn nonce(&self) -> GenericArray<u8, U12> {
         self.nonce.0
     }
 
-    pub fn nonce_as_u8(&self) -> Vec<u8> {
-        self.nonce.0.to_vec()
+    pub fn ciphertext(&self) -> &[u8] {
+        &self.ciphertext
     }
 
-    pub fn tags(self) -> Vec<String> {
-        self.tags
+    pub fn nonce_as_u8(&'a self) -> &'a [u8] {
+        &self.nonce.0
     }
 
-    pub fn replace_tags(&mut self, tags: Vec<String>) {
-        self.tags = tags;
+    pub fn tags(&'a self) -> Vec<&'a str> {
+        self.tags.iter().map(AsRef::as_ref).collect()
     }
+
     pub fn remove_all_tags(mut self) {
         self.tags = Vec::new();
-    }
-
-    pub fn add_tags(mut self, vec: Option<Vec<String>>) {
-        if let Some(mut vec) = vec {
-            self.tags.append(&mut vec);
-        }
     }
 
     pub fn add_tag(mut self, string: &str) {
         self.tags.push(string.to_owned());
     }
 
+    pub fn replace_tags(&mut self, tags: Vec<String>) {
+        self.tags = tags;
+    }
+
     pub fn remove_tag(mut self, tag: &str) {
-        self.tags.retain(|x| x == &tag.to_owned());
+        self.tags.retain(|x| x == tag);
     }
 
     pub fn access_level(&self) -> i32 {
@@ -105,8 +160,8 @@ impl EncryptedSecret {
         }
     }
 
-    pub fn role_whitelist(self) -> Vec<String> {
-        self.role_whitelist
+    pub fn role_whitelist(&'a self) -> Vec<&'a str> {
+        self.role_whitelist.iter().map(AsRef::as_ref).collect()
     }
 
     pub fn set_role_whitelist(&mut self, whitelist: Option<Vec<String>>) {
