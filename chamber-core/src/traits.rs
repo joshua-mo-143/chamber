@@ -3,7 +3,7 @@ use crate::errors::DatabaseError;
 use sqlx::PgPool;
 use crate::Postgres;
 use crate::secrets::KeyFile;
-use serde::Serialize;
+
 use shuttle_persist::PersistInstance;
 
 #[async_trait::async_trait]

@@ -1,5 +1,5 @@
 use crate::errors::DatabaseError;
-use crate::secrets::{EncryptedSecret, SecretInfo, KeyFile, Secret};
+use crate::secrets::{EncryptedSecret, SecretInfo, Secret};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use tokio::sync::Mutex;

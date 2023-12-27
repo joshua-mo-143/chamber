@@ -7,7 +7,6 @@ pub enum ApiError {
     Unauthorised,
     Locked,
     DBError(DatabaseError),
-    AesError(aes_gcm::Error),
     Utf8Error(std::str::Utf8Error),
 }
 
@@ -22,7 +21,6 @@ impl IntoResponse for ApiError {
                 (StatusCode::LOCKED, "The vault is locked!".to_string()).into_response()
             }
             Self::DBError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-            Self::AesError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
             Self::Utf8Error(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
         }
     }
@@ -31,12 +29,6 @@ impl IntoResponse for ApiError {
 impl From<DatabaseError> for ApiError {
     fn from(e: DatabaseError) -> Self {
         Self::DBError(e)
-    }
-}
-
-impl From<aes_gcm::Error> for ApiError {
-    fn from(e: aes_gcm::Error) -> Self {
-        Self::AesError(e)
     }
 }
 

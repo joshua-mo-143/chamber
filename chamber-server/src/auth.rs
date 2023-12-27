@@ -6,6 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json, RequestPartsExt,
 };
+use ring::rand::SecureRandom;
 use std::time::{SystemTime};
 use chamber_core::errors::DatabaseError;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -14,17 +15,16 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt::Display;
 use std::sync::Arc;
+use ring::rand::SystemRandom;
 
-
-use aes_gcm::aead::OsRng;
-use aes_gcm::aead::rand_core::RngCore;
 use chamber_core::core::Database;
 use chamber_core::core::AuthBody;
 use chamber_core::traits::AppState;
 
 static KEYS: Lazy<Keys> = Lazy::new(|| {
+    let random = SystemRandom::new();
     let mut secret = [0u8; 200];
-    OsRng.fill_bytes(&mut secret);
+    random.fill(&mut secret);
     Keys::new(&secret)
 });
 

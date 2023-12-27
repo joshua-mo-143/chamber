@@ -9,7 +9,7 @@ pub struct User {
     roles: Vec<String>,
 }
 
-impl User {
+impl<'a> User {
     pub fn new(username: String, password: Option<String>) -> Self {
         let password = match password {
             Some(password) => password,
@@ -32,8 +32,8 @@ impl User {
         self.access_level = access_level;
     }
 
-    pub fn roles(self) -> Vec<String> {
-        self.roles
+    pub fn roles(&'a self) -> &'a [String] {
+        &self.roles
     }
 
     pub fn set_user_rules(&mut self, vec: Vec<String>) {

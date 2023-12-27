@@ -2,14 +2,11 @@ use crate::core::Database;
 use crate::errors::DatabaseError;
 use crate::secrets::{EncryptedSecret, Secret};
 use crate::users::User;
-use aes_gcm::{
-    aead::{Aead, KeyInit},
-    Aes256Gcm,
-};
 use nanoid::nanoid;
 use sqlx::PgPool;
+use sqlx::types::BigDecimal;
 
-use crate::core::LockedStatus;
+
 use crate::secrets::SecretInfo;
 
 #[derive(Clone)]
@@ -32,7 +29,7 @@ impl Database for Postgres {
                     ($1, $2, $3, $4, $5, $6)",
         )
         .bind(new_secret.key())
-        .bind(new_secret.nonce_as_u8())
+        .bind(BigDecimal::from(new_secret.nonce_number.0))
         .bind(new_secret.ciphertext())
         .bind(new_secret.tags())
         .bind(new_secret.access_level())

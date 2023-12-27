@@ -16,9 +16,6 @@ use crate::errors::ApiError;
 use chamber_core::core::Database;
 use chamber_core::traits::AppState;
 use chamber_core::secrets::EncryptedSecretBuilder;
-use aes_gcm::Aes256Gcm;
-use aes_gcm::KeyInit;
-use aes_gcm::aead::Aead;
 
 use crate::header::ChamberHeader;
 use chamber_core::core::CreateSecretParams;
@@ -29,11 +26,12 @@ pub async fn create_secret<S: AppState>(
     Json(secret): Json<CreateSecretParams>,
 ) -> Result<impl IntoResponse, ApiError> {
     let keyfile = state.get_keyfile();
+
         let new_secret = EncryptedSecretBuilder::new(secret.key, secret.value)
         .with_access_level(secret.access_level) 
         .with_tags(secret.tags)
         .with_whitelist(secret.role_whitelist)
-        .build(keyfile.crypto_key());
+        .build(keyfile.get_crypto_seal_key(), keyfile.nonce_number);
 
     state.db().create_secret(new_secret).await.unwrap();
 
@@ -68,15 +66,11 @@ pub async fn view_secret<S: AppState>(
     let user = state.db().view_user_by_name(claim.sub).await?;
     let secret = state.db().view_secret_decrypted(user, secret.key).await?;
 
-        let keyfile = state.get_keyfile();
-        let key = Aes256Gcm::new(&keyfile.crypto_key());
-        let plaintext = key.decrypt(&secret.nonce.0, secret.ciphertext.as_ref())?;
+        let unsealer = state.get_keyfile().get_crypto_open_key(secret.nonce_number.0);
 
-        let text_str = std::str::from_utf8(&plaintext)?;
+        let res = secret.decrypt(unsealer);
 
-        let string = String::from(text_str);
-
-        Ok(string)
+        Ok(res)
 }
 
 pub async fn view_all_secrets<S: AppState>(
@@ -129,10 +123,10 @@ pub async fn upload_binfile(
     while let Some(field) = multipart.next_field().await.unwrap() {
         let data = field.bytes().await.unwrap();
 
-        std::fs::write("boulder.bin", data).unwrap();
+        std::fs::write("chamber.bin", data).unwrap();
     }  
 
-    println!("NEW BOULDER FILE UPLOADED");
+    println!("NEW CHAMBER FILE UPLOADED");
     
     Ok(StatusCode::OK)
 }
@@ -141,6 +135,10 @@ pub async fn unlock<S: AppState>(
     State(state): State<Arc<S>>,
     TypedHeader(auth): TypedHeader<ChamberHeader>,
 ) -> Result<impl IntoResponse, ApiError> {
+    if auth.key() != state.get_keyfile().unseal_key() {
+        return Err(ApiError::Forbidden);
+    }
+
     match state.locked_status().unlock().await {
         Ok(true) => Ok(StatusCode::OK),
         Ok(false) => Err(ApiError::Forbidden),

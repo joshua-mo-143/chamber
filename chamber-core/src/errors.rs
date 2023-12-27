@@ -17,12 +17,6 @@ impl From<std::str::Utf8Error> for DatabaseError {
     }
 }
 
-impl From<aes_gcm::Error> for DatabaseError {
-    fn from(_error: aes_gcm::Error) -> Self {
-        Self::EncryptionError
-    }
-}
-
 impl From<sqlx::Error> for DatabaseError {
     fn from(err: sqlx::Error) -> Self {
         Self::SQLError(err)

@@ -31,7 +31,7 @@ async fn main() {
     if std::fs::read("chamber.bin").is_err() {
         println!("No chamber.bin file attached, generating one now...");
         let key = KeyFile::new();
-        println!("Your root key is: {}", key.clone().unseal_key());
+        println!("Your root key is: {}", key.unseal_key());
         let encoded = bincode::serialize(&key).unwrap();
 
              std::fs::write("chamber.bin", encoded).unwrap();
