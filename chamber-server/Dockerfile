@@ -18,4 +18,4 @@ RUN cargo build --release --target x86_64-unknown-linux-musl --bin standalone
 
 FROM alpine AS runtime
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/standalone /usr/local/bin
-CMD ["./standalone"]
+CMD ["/usr/local/bin/standalone"]
