@@ -3,7 +3,7 @@ use chamber_core::traits::RegularAppState;
 use chamber_server::router::init_router;
 
 mod common;
-const BOUNDARY: &'static str = "------------------------ea3bbcf87c101592";
+const BOUNDARY: &str = "------------------------ea3bbcf87c101592";
 
 #[cfg(test)]
 mod tests {

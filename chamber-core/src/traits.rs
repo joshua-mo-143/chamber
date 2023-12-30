@@ -84,7 +84,23 @@ impl AppState for ShuttleAppState {
     }
 
     fn get_keyfile(&self) -> Result<KeyFile, DatabaseError> {
-        let res = self.persist.load::<KeyFile>("KEYFILE").unwrap();
+        let res = match self.persist.load::<KeyFile>("KEYFILE") {
+            Ok(res) => res,
+            Err(_) => {
+        self.check_keyfile_exists();
+        let res = match std::fs::read(KEYFILE_PATH) {
+            Ok(res) => res,
+            Err(e) => return Err(DatabaseError::IoError(e)),
+        };
+
+        let decoded: KeyFile = bincode::deserialize(&res).unwrap();
+
+        self.persist.save::<KeyFile>("KEYFILE", decoded).unwrap();
+        self.persist.load::<KeyFile>("KEYFILE").unwrap() 
+
+
+        }
+        };
 
         Ok(res)
     }

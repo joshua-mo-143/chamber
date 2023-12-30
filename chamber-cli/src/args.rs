@@ -45,6 +45,11 @@ pub struct LoginArgs {
 }
 
 #[derive(Parser, Clone)]
+pub struct UserArgs {
+    #[arg(long, short = 'u')]
+    pub username: Option<String>,
+}
+#[derive(Parser, Clone)]
 pub struct ListArgs {
     #[arg(long, short = 't')]
     pub tags: Option<String>,
@@ -66,10 +71,22 @@ pub struct KeygenArgs {
     pub output: Option<PathBuf>,
 }
 
+#[derive(Parser, Clone)]
+pub struct UpdateUserArgs {
+    pub username: String,
+    pub access_level: Option<i32>,
+    #[arg(short, long, value_parser, num_args = 1.., value_delimiter = ' ')]
+    pub roles: Option<Vec<String>>
+}
+
 #[derive(Subcommand)]
 pub enum UserCommands {
     /// Create a new user
     Create(LoginArgs),
+    /// Create a new user
+    Update(UpdateUserArgs),
+    /// Create a new user
+    Delete(UserArgs),
 }
 
 #[derive(Subcommand)]
@@ -95,7 +112,13 @@ pub enum WebsiteCommands {
     /// Get the current URL
     Get,
     /// Set the current URL
-    Set { value: String },
+    Set(SetArgs),
+}
+
+#[derive(Parser, Clone)]
+pub struct SetArgs {
+    #[arg(long, short = 'v')]
+    pub value: Option<String> 
 }
 
 #[derive(Parser, Clone)]

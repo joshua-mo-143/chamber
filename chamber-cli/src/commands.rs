@@ -202,13 +202,85 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
                     }
                 }
             }
+            UserCommands::Update(args) => {
+                let website = match cfg.website() {
+                    Some(res) => format!("{res}/users/create"),
+                    None => panic!("You didn't set a URL for a Chamber instance to log into!"),
+                };
+
+                if args.access_level.is_none() & args.roles.is_none() {
+                    return Err(CliError::AtLeastOneArgError);
+                } 
+
+                let key = Text::new("Please enter your root key:").prompt()?;
+
+                let ctx = reqwest::blocking::Client::new();
+
+                let res = ctx
+                    .post(website)
+                    .header("Content-Type", "application/json")
+                    .header("x-chamber-key", key)
+                    .json(&serde_json::json!({
+                        "username": args.username, 
+                        "access_level": args.access_level,
+                        "roles": args.roles
+                        }))
+                    .send()?;
+
+                match res.status() {
+                    StatusCode::OK => {
+                        println!("User has been updated.");
+                    }
+                    _ => {
+                        println!("Error: {}", res.text()?)
+                    }
+                }
+            }
+
+            UserCommands::Delete(args) => {
+                let website = match cfg.website() {
+                    Some(res) => format!("{res}/users/delete"),
+                    None => panic!("You didn't set a URL for a Chamber instance to log into!"),
+                };
+
+                let key = Text::new("Please enter your root key:").prompt()?;
+
+            let username = match args.username {
+                Some(res) => res,
+                None => Text::new("Name of the user to be deleted:").prompt()?,
+            };
+
+                let ctx = reqwest::blocking::Client::new();
+
+                let res = ctx
+                    .post(website)
+                    .header("Content-Type", "application/json")
+                    .header("x-chamber-key", key)
+                    .json(&serde_json::json!({
+                        "username": username
+                    }))
+                    .send()?;
+
+                match res.status() {
+                    StatusCode::OK => {
+                        println!("User has been deleted.");
+                    }
+                    _ => {
+                        println!("Error: {}", res.text()?)
+                    }
+                }
+            }
         },
         Commands::Website { cmd } => match cmd {
             WebsiteCommands::Get => match cfg.website() {
                 Some(res) => println!("{res}"),
                 None => println!("No website has been set!"),
             },
-            WebsiteCommands::Set { value } => {
+            WebsiteCommands::Set(args) => {
+                let value = match args.value {
+                Some(res) => res,
+                None => Text::new("Enter the website URL:").prompt()?,
+                };
                 cfg.set_website(&value)?;
             }
         },
