@@ -6,13 +6,6 @@ use crate::core::{CreateSecretParams, Database};
 use crate::errors::DatabaseError;
 use crate::secrets::{EncryptedSecret, SecretInfo, KeyFile};
 use crate::users::User;
-
-use aes_gcm::{
-    aead::{Aead, KeyInit, OsRng},
-    Aes256Gcm, // Or `Aes128Gcm`
-    Key,
-};
-
 use crate::core::LockedStatus;
 
 #[derive(Clone)]

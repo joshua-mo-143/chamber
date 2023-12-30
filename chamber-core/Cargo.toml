@@ -8,24 +8,27 @@ homepage = "https://www.github.com/joshua-mo-143/chamber"
 documentation = "https://www.github.com/joshua-mo-143/chamber"
 repository = "https://www.github.com/joshua-mo-143/chamber"
 readme = "../README.md"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-aes-gcm = { workspace = true }
 async-trait = "0.1.74"
+argon2 = { workspace = true }
 axum = { workspace = true, features = ["macros"] }
-generic-array = { workspace = true }
 bincode = { workspace = true }
 chrono = { workspace = true }
+generic-array = { workspace = true }
+hex = "0.4.3"
 hyper = { workspace = true }
 nanoid = { workspace = true }
+num-traits = "0.2.17"
+ring = { workspace = true }
 serde = { workspace = true }
+serde_bytes = "0.11.12"
 serde_json = { workspace = true }
-sqlx = { workspace = true }
+shuttle-persist =  { version = "0.35.1" }
+sqlx = { workspace = true, features = ["bigdecimal"] }
 tokio = { workspace = true }
 tower = { workspace = true }
 tracing = { workspace = true }
 typenum = { workspace = true }
 zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
-serde_bytes = "0.11.12"

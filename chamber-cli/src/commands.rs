@@ -1,5 +1,5 @@
-use chamber_core::secrets::SecretInfo;
 use chamber_core::core::AuthBody;
+use chamber_core::secrets::SecretInfo;
 use comfy_table::Table;
 use inquire::Text;
 use reqwest::StatusCode;
@@ -161,14 +161,14 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
             std::fs::write("chamber.bin", encoded).unwrap();
 
             println!("Your root key: {}", key.unseal_key());
-            println!("Be sure to keep this file somewhere safe - you won't be able to get it back!");
+            println!(
+                "Be sure to keep this file somewhere safe - you won't be able to get it back!"
+            );
             println!("---");
-
-            } 
-        
+        }
 
         Commands::Users { cmd } => match cmd {
-            UserCommands::Create => {
+            UserCommands::Create(args) => {
                 let website = match cfg.website() {
                     Some(res) => format!("{res}/users/create"),
                     None => panic!("You didn't set a URL for a Chamber instance to log into!"),
@@ -176,21 +176,30 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
                 let key = Text::new("Please enter your root key:").prompt()?;
 
+            let username = match args.username {
+                Some(res) => res,
+                None => Text::new("Please enter your desired username:").prompt()?,
+            };
+            let password = match args.password {
+                Some(res) => res,
+                None => Text::new("Please enter your desired password:").prompt()?,
+            };
                 let ctx = reqwest::blocking::Client::new();
 
                 let res = ctx
                     .post(website)
                     .header("Content-Type", "application/json")
                     .header("x-chamber-key", key)
-                    .json(&serde_json::json!({"name":"josh"}))
+                    .json(&serde_json::json!({"username": username, "password": password}))
                     .send()?;
-                
+
                 match res.status() {
                     StatusCode::CREATED => {
-                println!("Your password is: {}", res.text()?);
-                println!("Make sure you keep it somewhere safe!");
+                        println!("User created! Make sure you keep the credentials somewhere safe.!");
                     }
-                    _ => {println!("Error: {}", res.text()?)}
+                    _ => {
+                        println!("Error: {}", res.text()?)
+                    }
                 }
             }
         },
@@ -205,6 +214,10 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
         },
 
         Commands::Login(args) => {
+            let username = match args.username {
+                Some(res) => res,
+                None => Text::new("Please enter your username:").prompt()?,
+            };
             let password = match args.password {
                 Some(res) => res,
                 None => Text::new("Please enter your password:").prompt()?,
@@ -220,15 +233,26 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
             let res = ctx
                 .post(website)
                 .header("Content-Type", "application/json")
-                .json(&serde_json::json!({"password": password }))
+                .json(&serde_json::json!({
+                    "username": username,
+                    "password": password 
+                }))
                 .send()?;
-
+        match res.status() {
+            StatusCode::OK => {
             let res = res.json::<AuthBody>()?;
 
             let token = format!("{} {}", res.token_type, res.access_token);
             cfg.set_token(&token)?;
 
             println!("You've logged in successfully!");
+            },
+            _ => {
+            println!("Something went wrong: {}", res.text()?);
+            },
+
+        }
+
         }
 
         Commands::Unseal { chamber_key } => {
@@ -280,13 +304,14 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
             match res.status() {
                 StatusCode::OK => {
                     println!("The new crypto key and root key have been uploaded!");
-                    println!("Note that any previous secrets you stored will need to be re-uploaded.");
+                    println!(
+                        "Note that any previous secrets you stored will need to be re-uploaded."
+                    );
                 }
                 _ => {
                     println!("{}", res.text()?);
                 }
             }
-            
         }
     }
 

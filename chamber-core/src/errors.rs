@@ -8,7 +8,9 @@ pub enum DatabaseError {
     Forbidden,
     Utf8Error,
     EncryptionError,
+    IoError(std::io::Error),
     SQLError(sqlx::Error),
+    Argon2Error(argon2::password_hash::Error)
 }
 
 impl From<std::str::Utf8Error> for DatabaseError {
@@ -17,15 +19,15 @@ impl From<std::str::Utf8Error> for DatabaseError {
     }
 }
 
-impl From<aes_gcm::Error> for DatabaseError {
-    fn from(_error: aes_gcm::Error) -> Self {
-        Self::EncryptionError
-    }
-}
-
 impl From<sqlx::Error> for DatabaseError {
     fn from(err: sqlx::Error) -> Self {
         Self::SQLError(err)
+    }
+}
+
+impl From<argon2::password_hash::Error> for DatabaseError {
+    fn from(err: argon2::password_hash::Error) -> Self {
+        Self::Argon2Error(err)
     }
 }
 
@@ -49,6 +51,8 @@ impl std::fmt::Display for DatabaseError {
             Self::Utf8Error => write!(f, "Error while trying to convert bytes to UTF8 string"),
             Self::EncryptionError => write!(f, "Error while trying to encrypt or decrypt a value"),
             Self::SQLError(e) => write!(f, "SQL error: {e}"),
+            Self::IoError(e) => write!(f, "IO error: {e}"),
+            Self::Argon2Error(e) => write!(f, "Hashing error: {e}"),
         }
     }
 }

@@ -1,29 +1,119 @@
-use aes_gcm::{
-    aead::{Aead, AeadCore, KeyInit, OsRng},
-    Aes256Gcm, // Or `Aes128Gcm`
-    Key,
+use crate::errors::DatabaseError;
+use num_traits::cast::ToPrimitive;
+use ring::rand::SecureRandom;
+use ring::rand::SystemRandom;
+use ring::{
+    aead::{Aad, BoundKey, Nonce, NonceSequence, OpeningKey, SealingKey},
+    error::Unspecified,
 };
-use generic_array::typenum::{U12, U32};
-use generic_array::GenericArray;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_bytes::ByteBuf;
+use sqlx::types::BigDecimal;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
-#[derive(sqlx::FromRow, Clone)]
+#[derive(sqlx::FromRow, Zeroize, ZeroizeOnDrop)]
 pub struct EncryptedSecret {
     pub key: String,
-    #[sqlx(try_from = "Vec<u8>")]
-    nonce: Nonce,
+    #[sqlx(try_from = "BigDecimal")]
+    pub nonce: U64Wrapper,
     pub ciphertext: Vec<u8>,
     tags: Vec<String>,
     access_level: i32,
     role_whitelist: Vec<String>,
 }
 
-#[derive(sqlx::FromRow, Clone)]
+#[derive(sqlx::FromRow, Clone, Default)]
+pub struct EncryptedSecretBuilder {
+    pub key: String,
+    value: String,
+    tags: Option<Vec<String>>,
+    access_level: Option<i32>,
+    role_whitelist: Option<Vec<String>>,
+}
+
+impl EncryptedSecretBuilder {
+    pub fn new(key: String, value: String) -> Self {
+        Self {
+            key,
+            value,
+            ..Default::default()
+        }
+    }
+
+    pub fn with_tags(mut self, tags: Option<Vec<String>>) -> Self {
+        if let Some(tags) = tags {
+            self.tags = Some(tags);
+        }
+        self
+    }
+
+    pub fn with_access_level(mut self, access_level: Option<i32>) -> Self {
+        if let Some(access_level) = access_level {
+            self.access_level = Some(access_level);
+        }
+        self
+    }
+
+    pub fn with_whitelist(mut self, role_whitelist: Option<Vec<String>>) -> Self {
+        if let Some(role_whitelist) = role_whitelist {
+            self.role_whitelist = Some(role_whitelist);
+        }
+        self
+    }
+
+    pub fn build(
+        self,
+        mut sealing_key: SealingKey<NonceCounter>,
+        nonce_num: u64,
+    ) -> EncryptedSecret {
+        let aad = Aad::empty();
+
+        let mut transformed_in_place: Vec<u8> = self.value.into_bytes();
+
+        sealing_key
+            .seal_in_place_append_tag(aad, &mut transformed_in_place)
+            .unwrap();
+
+        EncryptedSecret {
+            key: self.key,
+            nonce: U64Wrapper(nonce_num),
+            ciphertext: transformed_in_place,
+            tags: if let Some(tags) = self.tags {
+                tags
+            } else {
+                Vec::new()
+            },
+            access_level: if let Some(access_level) = self.access_level {
+                access_level
+            } else {
+                0
+            },
+            role_whitelist: if let Some(whitelist) = self.role_whitelist {
+                whitelist
+            } else {
+                Vec::new()
+            },
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
 pub struct Secret {
-    #[sqlx(try_from = "Vec<u8>")]
-    pub nonce: Nonce,
+    #[sqlx(try_from = "BigDecimal")]
+    pub nonce: U64Wrapper,
     pub ciphertext: Vec<u8>,
+}
+
+impl Secret {
+    pub fn decrypt(&self, mut seq: OpeningKey<NonceCounter>) -> String {
+        let _aad = Aad::empty();
+
+        let mut tag = self.ciphertext.clone();
+
+        let plaintext = seq.open_in_place(Aad::empty(), &mut tag).unwrap();
+
+        String::from_utf8(plaintext.to_vec()).unwrap()
+    }
 }
 
 #[derive(sqlx::FromRow, Clone, Serialize, Deserialize, Debug)]
@@ -34,65 +124,37 @@ pub struct SecretInfo {
     pub role_whitelist: Vec<String>,
 }
 
-impl SecretInfo {
-    pub fn from_encrypted(es: EncryptedSecret, key: String) -> Self {
-        Self {
-            key,
-            tags: es.clone().tags(),
-            access_level: es.access_level(),
-            role_whitelist: es.role_whitelist(),
-        }
-    }
-}
-
-impl EncryptedSecret {
-    pub fn new(cipher_key: Key<Aes256Gcm>, key: String, val: String) -> Self {
-        let cipher = Aes256Gcm::new(&cipher_key);
-
-        let nonce = Aes256Gcm::generate_nonce(&mut OsRng); // 96-bits; unique per message
-        let ciphertext = cipher.encrypt(&nonce, val.as_ref()).unwrap();
-
-        Self {
-            key,
-            nonce: Nonce(nonce),
-            ciphertext,
-            tags: Vec::new(),
-            access_level: 0,
-            role_whitelist: Vec::new(),
-        }
+impl<'a> EncryptedSecret {
+    pub fn key(&'a self) -> &'a str {
+        &self.key
     }
 
-    pub fn nonce(&self) -> GenericArray<u8, U12> {
+    pub fn nonce(&self) -> u64 {
         self.nonce.0
     }
 
-    pub fn nonce_as_u8(&self) -> Vec<u8> {
-        self.nonce.0.to_vec()
+    pub fn ciphertext(&self) -> &[u8] {
+        &self.ciphertext
     }
 
-    pub fn tags(self) -> Vec<String> {
-        self.tags
+    pub fn tags(&'a self) -> Vec<&'a str> {
+        self.tags.iter().map(AsRef::as_ref).collect()
     }
 
-    pub fn replace_tags(&mut self, tags: Vec<String>) {
-        self.tags = tags;
-    }
     pub fn remove_all_tags(mut self) {
         self.tags = Vec::new();
-    }
-
-    pub fn add_tags(mut self, vec: Option<Vec<String>>) {
-        if let Some(mut vec) = vec {
-            self.tags.append(&mut vec);
-        }
     }
 
     pub fn add_tag(mut self, string: &str) {
         self.tags.push(string.to_owned());
     }
 
+    pub fn replace_tags(&mut self, tags: Vec<String>) {
+        self.tags = tags;
+    }
+
     pub fn remove_tag(mut self, tag: &str) {
-        self.tags.retain(|x| x == &tag.to_owned());
+        self.tags.retain(|x| x == tag);
     }
 
     pub fn access_level(&self) -> i32 {
@@ -105,8 +167,8 @@ impl EncryptedSecret {
         }
     }
 
-    pub fn role_whitelist(self) -> Vec<String> {
-        self.role_whitelist
+    pub fn role_whitelist(&'a self) -> Vec<&'a str> {
+        self.role_whitelist.iter().map(AsRef::as_ref).collect()
     }
 
     pub fn set_role_whitelist(&mut self, whitelist: Option<Vec<String>>) {
@@ -124,23 +186,19 @@ impl EncryptedSecret {
     }
 }
 
-#[derive(Clone)]
-pub struct Nonce(pub GenericArray<u8, U12>);
-
-impl From<Vec<u8>> for Nonce {
-    fn from(vec: Vec<u8>) -> Self {
-        let nonce: GenericArray<u8, U12> = *GenericArray::from_slice(&vec[..]);
-
-        Self(nonce)
-    }
-}
-
-#[derive(Clone)]
-struct SerializeKey(GenericArray<u8, U32>);
+#[derive(Zeroize, ZeroizeOnDrop)]
+struct SerializeKey(pub Vec<u8>);
 
 impl SerializeKey {
     pub fn new() -> Self {
-        Self(Aes256Gcm::generate_key(OsRng))
+        let meme = SystemRandom::new();
+        let mut key: [u8; 32] = [0u8; 32];
+        let _ = meme.fill(&mut key);
+        Self(key.to_vec())
+    }
+
+    pub fn make_key(&self) -> ring::aead::UnboundKey {
+        ring::aead::UnboundKey::new(&ring::aead::AES_256_GCM, &self.0).unwrap()
     }
 }
 
@@ -163,44 +221,105 @@ impl<'de> Deserialize<'de> for SerializeKey {
             .map(ByteBuf::into_vec)
             .unwrap();
 
-        let bytes: GenericArray<u8, U32> = *GenericArray::from_slice(&bytes[..]);
-
         Ok(Self(bytes))
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct KeyFile {
-    unseal_key: String,
+    unlock_key: String,
     crypto_key: SerializeKey,
+    pub nonce_number: u64,
 }
 
-impl KeyFile {
+#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+pub struct U64Wrapper(pub u64);
+
+impl From<BigDecimal> for U64Wrapper {
+    fn from(decimal: BigDecimal) -> Self {
+        Self(decimal.to_u64().unwrap())
+    }
+}
+
+impl<'b> KeyFile {
     pub fn new() -> Self {
         Self {
-            unseal_key: nanoid::nanoid!(100),
+            unlock_key: nanoid::nanoid!(100),
             crypto_key: SerializeKey::new(),
+            nonce_number: 1,
         }
     }
 
     pub fn from_key(string: &str) -> Self {
         Self {
-            unseal_key: string.to_owned(),
+            unlock_key: string.to_owned(),
             crypto_key: SerializeKey::new(),
+            nonce_number: 1,
         }
     }
 
-    pub fn unseal_key(self) -> String {
-        self.unseal_key
+    pub fn unseal_key(&'b self) -> &'b str {
+        &self.unlock_key
     }
 
-    pub fn crypto_key(self) -> GenericArray<u8, U32> {
-        self.crypto_key.0
+    pub fn save(&self) -> Result<(), DatabaseError> {
+        let _thing = self;
+        let encoded = bincode::serialize(&self).unwrap();
+
+        match std::fs::write("chamber.bin", encoded) {
+            Ok(res) => res,
+            Err(e) => return Err(DatabaseError::IoError(e)),
+        };
+        Ok(())
+    }
+
+    pub fn get_crypto_seal_key(&mut self) -> SealingKey<NonceCounter> {
+        let nonce_sequence = NonceCounter(self.nonce_number);
+
+        let unbound_key = self.crypto_key.make_key();
+        self.nonce_number += 1;
+
+        let _ = self.save();
+        SealingKey::new(unbound_key, nonce_sequence)
+    }
+
+    pub fn get_crypto_open_key(&self, num: u64) -> OpeningKey<NonceCounter> {
+        let nonce_sequence = NonceCounter(num);
+
+        let unbound_key = self.crypto_key.make_key();
+        OpeningKey::new(unbound_key, nonce_sequence)
     }
 }
 
 impl Default for KeyFile {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub struct NonceCounter(u64);
+
+impl Default for NonceCounter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl NonceCounter {
+    pub fn new() -> Self {
+        Self(1)
+    }
+}
+
+impl NonceSequence for NonceCounter {
+    // called once for each seal operation
+    fn advance(&mut self) -> Result<Nonce, Unspecified> {
+        let mut nonce_bytes: [u8; 12] = [0; 12];
+
+        let bytes = self.0.to_be_bytes();
+        nonce_bytes[4..].copy_from_slice(&bytes);
+
+        self.0 += 1; // advance the counter
+        Ok(Nonce::try_assume_unique_for_key(&nonce_bytes).unwrap())
     }
 }

@@ -30,12 +30,16 @@ pub enum Commands {
     /// Commands related to generating keys for your Chamber instance.
     Keygen(KeygenArgs),
     /// Unseal your Chamber instance.
-    Unseal { chamber_key: String },
-    Upload(UploadArgs)
+    Unseal {
+        chamber_key: String,
+    },
+    Upload(UploadArgs),
 }
 
 #[derive(Parser, Clone)]
 pub struct LoginArgs {
+    #[arg(long, short = 'u')]
+    pub username: Option<String>,
     #[arg(long, short = 'p')]
     pub password: Option<String>,
 }
@@ -65,7 +69,7 @@ pub struct KeygenArgs {
 #[derive(Subcommand)]
 pub enum UserCommands {
     /// Create a new user
-    Create,
+    Create(LoginArgs),
 }
 
 #[derive(Subcommand)]
@@ -97,5 +101,5 @@ pub enum WebsiteCommands {
 #[derive(Parser, Clone)]
 pub struct UploadArgs {
     #[arg(long, short)]
-    pub key: Option<String>
+    pub key: Option<String>,
 }

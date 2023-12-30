@@ -6,51 +6,63 @@ use axum::{
     response::{IntoResponse, Response},
     Json, RequestPartsExt,
 };
-use std::time::{SystemTime};
 use chamber_core::errors::DatabaseError;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use once_cell::sync::Lazy;
+use ring::rand::SecureRandom;
+use ring::rand::SystemRandom;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt::Display;
-
-use crate::state::DynDatabase;
-use aes_gcm::aead::OsRng;
-use aes_gcm::aead::rand_core::RngCore;
+use std::sync::Arc;
+use std::time::SystemTime;
 
 use chamber_core::core::AuthBody;
+use chamber_core::core::Database;
+use chamber_core::traits::AppState;
 
 static KEYS: Lazy<Keys> = Lazy::new(|| {
+    let random = SystemRandom::new();
     let mut secret = [0u8; 200];
-    OsRng.fill_bytes(&mut secret);
+    let _ = random.fill(&mut secret);
     Keys::new(&secret)
 });
 
 #[derive(Deserialize)]
 pub struct UserLoginParams {
+    username: String,
     password: String,
 }
 
-pub async fn login(
-    State(state): State<DynDatabase>,
+pub async fn login<S: AppState>(
+    State(state): State<Arc<S>>,
     Json(user): Json<UserLoginParams>,
 ) -> Result<(StatusCode, Json<AuthBody>), AuthError> {
+    let state = state.db();
     // Check if the user sent the credentials
-    if user.password.is_empty() {
+    if user.username.is_empty() | user.password.is_empty() {
         return Err(AuthError::MissingCredentials);
     }
     // Here you can check the user credentials from a database
-    let res = match state.get_user_from_password(user.password).await {
+    let returned_user = match state.get_user_from_name(user.username).await {
         Ok(res) => res,
         Err(e) => return Err(AuthError::WrongCredentials(e)),
-    };
+    }; 
+
+    if let Err(e) = returned_user.verify(&user.password) {
+       return Err(AuthError::WrongCredentials(e)); 
+    }
 
     // 24 hour timer
-    let exp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() + 86400; 
+    let exp = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        + 86400;
+
     let claims = Claims {
-        sub: res.username.to_owned(),
-        // Mandatory expiry time as UTC timestamp
-        exp: exp.try_into().unwrap(), // May 2033
+        sub: returned_user.username.to_owned(),
+        exp: exp.try_into().unwrap(), 
     };
     // Create the authorization token
     let token = encode(&Header::default(), &claims, &KEYS.encoding)

@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS secrets (
     id SERIAL PRIMARY KEY,
     key VARCHAR NOT NULL UNIQUE,
-    nonce BYTEA NOT NULL UNIQUE,
+    nonce NUMERIC NOT NULL UNIQUE,
     ciphertext BYTEA NOT NULL UNIQUE,
 	tags TEXT[] not null DEFAULT array[]::TEXT[],
 	access_level INT NOT NULL DEFAULT 0,
@@ -19,11 +19,4 @@ CREATE TABLE IF NOT EXISTS secrets (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO users (username, password, access_level) values ('root', 'password', 9001);
-
-CREATE TABLE IF NOT EXISTS core (
-	id SERIAL PRIMARY KEY,
-	unseal_key VARCHAR NOT NULL,
-	crypto_key BYTEA NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+INSERT INTO users (username, password, access_level) values ('root', '$argon2id$v=19$m=16,t=2,p=1$aEFxcjZlUlYwS21nVTNWWA$S92gSdO/RSqgRgAUlNe3Rw', 9001);

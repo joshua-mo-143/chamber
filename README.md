@@ -3,7 +3,7 @@
 Do you have NIH syndrome? Me too, which is why I made this web service so I can avoid the complexity of having to use Hashicorp Vault.
 
 ## Usage
-The easiest way to start using Chamber is via the CLI. Currently there is no package published on crates.io, so you will need to install it using the following:
+The easiest way to start using Chamber is via the CLI. You will need to install it using the following:
 ```bash
 cargo install chamber-cli
 ```
@@ -29,37 +29,15 @@ The dockerfile takes the `DATABASE_URL` and `PORT` environment variables.
 
 ## Features
 - Store your secrets in a self-hostable web server
-- Lock and unlock using 
+- Lock and unlock your instance using root key 
 - Encrypt your secrets using AES-256-GCM 
 - IAM system that allows you to lock secrets by role whitelist and power level
 - Categorise your secrets easily using tags
 - Postgres backend (multiple backends to be supported in future)
 - Written in Rust 
 
-## Roadmap for v0.1.0
-- [x] CLI
-	- [x] Config
-	- [x] Unseal
-	- [x] Sign in
-	- [x] Create/delete users 
-	- [x] Set/get secrets
-	- [x] Remove secrets
-	- [x] Table output
-	- [x] Generate a pre-made cryptokey file to use in web service
-	- [x] Basic key rotation (to be improved)
-- [x] Web service
-	- [x] JWT auth
-	- [x] Unsealing route
-	- [x] Set/get/remove secrets
-	- [x] Secrets access-level requirement and role whitelist
-	- [x] Create/delete users
-	- [x] User roles/access level
-	- [x] Persisting cryptokey through file
-- [x] Postgres database
-	- [x] AES-256-GCM en/decryption
-	- [x] Seal/unseal using API key
-	- [x] Basic IAM system
-	- [x] Secrets grouping
+## Future short-term features
+- Secrets will be encrypted and signed
 
 ## Long(er) Term Roadmap
 - Logging/tracing
@@ -70,3 +48,10 @@ There are several moving parts to Chamber:
 - A web server that has can be unlocked and locked as required
 - A command-line interface that serves as the current primary way to interact with a Chamber server
 - The core (which holds methods for storing data, encryption and decryption, and other misc things)
+
+## How secure is Chamber?
+Chamber currently uses the `ring` crate, which is under the Rustls stack. A security audit was done in 2020, which you can find more about [here](https://github.com/rustls/rustls/blob/main/audit/TLS-01-report.pdf). Only four minor findings were found and were either security recommendations or noteworthy (but **not exploitable!**) issues.
+
+Secrets are currently encrypted through AES-256-GCM. This provides *reasonably* good security where personal projects are concerned or where Chamber may be used for small scale production projects. We also utilise a nonce sequence based on an incrementing u64 starting from the number 1, which should be reasonably good enough for most cases. However, no form of signing is currently implemented. This is due to be resolved before v0.3.0 release.
+
+Efforts have been made to ensure that the nonce wrapper and all related structs do not implement Clone to make sure that data is not duplicated unnecessarily. `zeroize` will also be used to ensure that the freed memory clears itself.

@@ -14,18 +14,17 @@ name = "chamber"
 path = "src/bin/main.rs"
 
 [dependencies]
+#chamber-core = "0.1.1"
+bincode = { workspace = true }
+chamber-core = { path = "../chamber-core" }
 clap = { version = "4.4.11", features = ["derive", "env"] }
+comfy-table = "7.1.0"
+generic-array = { workspace = true }
+home = "0.5.9"
+inquire = "0.6.2"
+nanoid = { workspace = true }
+reqwest = { version = "0.11.22", features = ["json", "blocking", "multipart"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
-home = "0.5.9"
-reqwest = { version = "0.11.22", features = ["json", "blocking", "multipart"] }
 toml = "0.8.8"
-inquire = "0.6.2"
-# chamber-core = { path = "../chamber-core" }
-chamber-core = "0.1.1"
-bincode = { workspace = true }
-aes-gcm = { workspace = true }
-generic-array = { workspace = true }
-nanoid = { workspace = true }
 typenum = { workspace = true }
-comfy-table = "7.1.0"
