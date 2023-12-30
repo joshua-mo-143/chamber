@@ -1,6 +1,6 @@
 [package]
 name = "chamber-cli"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 description = "The CLI for Chamber, the self-hostable SecretOps service."
@@ -14,9 +14,9 @@ name = "chamber"
 path = "src/bin/main.rs"
 
 [dependencies]
-#chamber-core = "0.1.1"
+chamber-core = "0.2.0"
 bincode = { workspace = true }
-chamber-core = { path = "../chamber-core" }
+#chamber-core = { path = "../chamber-core" }
 clap = { version = "4.4.11", features = ["derive", "env"] }
 comfy-table = "7.1.0"
 generic-array = { workspace = true }
