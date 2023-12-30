@@ -2,7 +2,7 @@ use crate::core::Database;
 use crate::errors::DatabaseError;
 use crate::secrets::{EncryptedSecret, Secret};
 use crate::users::User;
-use nanoid::nanoid;
+
 use sqlx::types::BigDecimal;
 use sqlx::PgPool;
 

@@ -24,7 +24,7 @@ use chamber_core::traits::AppState;
 static KEYS: Lazy<Keys> = Lazy::new(|| {
     let random = SystemRandom::new();
     let mut secret = [0u8; 200];
-    random.fill(&mut secret);
+    let _ = random.fill(&mut secret);
     Keys::new(&secret)
 });
 

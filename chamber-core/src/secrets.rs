@@ -9,8 +9,9 @@ use ring::{
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_bytes::ByteBuf;
 use sqlx::types::BigDecimal;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
-#[derive(sqlx::FromRow)]
+#[derive(sqlx::FromRow, Zeroize, ZeroizeOnDrop)]
 pub struct EncryptedSecret {
     pub key: String,
     #[sqlx(try_from = "BigDecimal")]
@@ -185,13 +186,14 @@ impl<'a> EncryptedSecret {
     }
 }
 
+#[derive(Zeroize, ZeroizeOnDrop)]
 struct SerializeKey(pub Vec<u8>);
 
 impl SerializeKey {
     pub fn new() -> Self {
         let meme = SystemRandom::new();
         let mut key: [u8; 32] = [0u8; 32];
-        meme.fill(&mut key);
+        let _ = meme.fill(&mut key);
         Self(key.to_vec())
     }
 
@@ -223,14 +225,14 @@ impl<'de> Deserialize<'de> for SerializeKey {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct KeyFile {
     unlock_key: String,
     crypto_key: SerializeKey,
     pub nonce_number: u64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct U64Wrapper(pub u64);
 
 impl From<BigDecimal> for U64Wrapper {
@@ -277,7 +279,7 @@ impl<'b> KeyFile {
         let unbound_key = self.crypto_key.make_key();
         self.nonce_number += 1;
 
-        self.save();
+        let _ = self.save();
         SealingKey::new(unbound_key, nonce_sequence)
     }
 
