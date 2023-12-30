@@ -6,6 +6,7 @@ pub enum CliError {
     IoError(std::io::Error),
     RequestError(reqwest::Error),
     PromptError(inquire::error::InquireError),
+    AtLeastOneArgError
 }
 
 impl std::error::Error for CliError {}
@@ -16,6 +17,7 @@ impl fmt::Display for CliError {
             Self::RequestError(err) => write!(f, "Error while using HTTP request: {err}"),
             Self::PromptError(err) => write!(f, "Error while attempting to use prompt: {err}"),
             Self::IoError(err) => write!(f, "Error during file I/O: {err}"),
+            Self::AtLeastOneArgError => write!(f, "You need at least one option filled."),
         }
     }
 }

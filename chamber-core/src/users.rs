@@ -45,7 +45,7 @@ impl<'a> User {
         self.access_level
     }
 
-    pub fn set_access_level(mut self, access_level: i32) {
+    pub fn set_access_level(&mut self, access_level: i32) {
         self.access_level = access_level;
     }
 
@@ -53,7 +53,7 @@ impl<'a> User {
         &self.roles
     }
 
-    pub fn set_user_rules(&mut self, vec: Vec<String>) {
+    pub fn set_roles(&mut self, vec: Vec<String>) {
         self.roles = vec;
     }
 

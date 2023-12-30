@@ -50,8 +50,7 @@ There are several moving parts to Chamber:
 - The core (which holds methods for storing data, encryption and decryption, and other misc things)
 
 ## How secure is Chamber?
-Chamber currently uses the `ring` crate, which is under the Rustls stack. A security audit was done in 2020, which you can find more about [here](https://github.com/rustls/rustls/blob/main/audit/TLS-01-report.pdf). Only four minor findings were found and were either security recommendations or noteworthy (but **not exploitable!**) issues.
+Please refer to the [SECURITY.md](./SECURITY.md) file for a full explanation.
 
-Secrets are currently encrypted through AES-256-GCM. This provides *reasonably* good security where personal projects are concerned or where Chamber may be used for small scale production projects. We also utilise a nonce sequence based on an incrementing u64 starting from the number 1, which should be reasonably good enough for most cases. However, no form of signing is currently implemented. This is due to be resolved before v0.3.0 release.
+For the TL;DR: This service is reasonably secure if you are using it for small scale projects. Work is being done to enhance the security as outlined in the aforementioned file. Expect the API to be unstable.
 
-Efforts have been made to ensure that the nonce wrapper and all related structs do not implement Clone to make sure that data is not duplicated unnecessarily. `zeroize` will also be used to ensure that the freed memory clears itself.

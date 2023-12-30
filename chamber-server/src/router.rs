@@ -14,11 +14,8 @@ pub fn init_router<S: AppState>(state: S) -> Router {
     let user_router = Router::new()
         .route("/create", post(users::create_user))
         .route("/delete", delete(users::delete_user))
-        .route("/roles", post(users::view_user_roles))
-        .route(
-            "/roles/edit",
-            put(users::grant_user_role).delete(users::revoke_user_role),
-        );
+        .route("/update", put(users::update_user))
+        .route("/roles", post(users::view_user_roles));
 
     let router = Router::new()
         .route("/", get(hello_world))

@@ -23,9 +23,10 @@ pub struct CreateUserParams {
 }
 
 #[derive(Deserialize)]
-pub struct UserRoleParams {
-    name: String,
-    role: String,
+pub struct UpdateUserParams {
+    pub username: String,
+    pub access_level: Option<i32>,
+    pub roles: Option<Vec<String>>,
 }
 
 pub async fn create_user<S: AppState>(
@@ -60,26 +61,22 @@ pub async fn view_user_roles<S: AppState>(
     Ok(Json(res))
 }
 
-pub async fn grant_user_role<S: AppState>(
+pub async fn update_user<S: AppState>(
     State(state): State<Arc<S>>,
     TypedHeader(_auth): TypedHeader<ChamberHeader>,
-    Json(UserRoleParams { name, role }): Json<UserRoleParams>,
+    Json(UpdateUserParams { username, access_level, roles }): Json<UpdateUserParams>,
 ) -> Result<StatusCode, ApiError> {
-    let user = state.db().get_user_from_name(name).await?;
+    let mut user = state.db().get_user_from_name(username).await?;
 
-    user.grant_user_role(role)?;
+    if let Some(roles) = roles {
+        user.set_roles(roles);
+    }
 
-    Ok(StatusCode::OK)
-}
+    if let Some(access_level) = access_level {
+        user.set_access_level(access_level);
+    }
 
-pub async fn revoke_user_role<S: AppState>(
-    State(state): State<Arc<S>>,
-    TypedHeader(_auth): TypedHeader<ChamberHeader>,
-    Json(UserRoleParams { name, role }): Json<UserRoleParams>,
-) -> Result<StatusCode, ApiError> {
-    let user = state.db().get_user_from_name(name).await?;
-
-    user.revoke_user_role(role)?;
+    state.db().update_user(user).await?;
 
     Ok(StatusCode::OK)
 }
