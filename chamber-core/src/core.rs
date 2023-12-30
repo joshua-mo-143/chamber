@@ -34,6 +34,9 @@ pub struct CreateSecretParams {
 
 #[async_trait::async_trait]
 pub trait Database {
+    async fn view_all_secrets_admin(
+        &self,
+    ) -> Result<Vec<EncryptedSecret>, DatabaseError>;
     async fn view_all_secrets(
         &self,
         user: User,
@@ -48,6 +51,7 @@ pub trait Database {
         key: String,
         secret: EncryptedSecret,
     ) -> Result<(), DatabaseError>;
+    async fn rekey_all_secrets(&self, secrets: Vec<EncryptedSecret>) -> Result<(), DatabaseError>;
     async fn delete_secret(&self, key: String) -> Result<(), DatabaseError>;
     async fn view_users(&self) -> Result<Vec<User>, DatabaseError>;
     async fn get_user_from_name(&self, id: String) -> Result<User, DatabaseError>;

@@ -3,5 +3,4 @@ pub mod errors;
 pub mod header;
 pub mod router;
 pub mod secrets;
-pub mod state;
 pub mod users;
