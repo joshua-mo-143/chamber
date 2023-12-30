@@ -3,36 +3,42 @@ name = "chamber-server"
 version = "0.1.1"
 edition = "2021"
 publish = false
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
 name = "chamber-server"
 path = "src/bin/shuttle.rs"
+required-features = ["shuttle"]
 
 [[bin]]
 name = "standalone"
 path = "src/bin/standalone.rs"
+required-features = []
+
+[features]
+default = ["shuttle"]
+shuttle = ["dep:shuttle-axum", "dep:shuttle-runtime", "dep:shuttle-persist", "dep:shuttle-shared-db"]
 
 [dependencies]
 axum = { version = "0.6.20", features = ["headers", "multipart"] }
 bincode = "1.3.3"
+chamber-core = { path = "../chamber-core" }
 chrono = { version = "0.4.31", features = ["clock", "serde"] }
+generic-array = { version = "0.14.7", features = ["zeroize"] }
+headers = "0.4.0"
 hyper = { version = "0.14", features = ["full"] }
+jsonwebtoken = "9.2.0"
 nanoid = "0.4.0"
+once_cell = "1.19.0"
+ring = "0.17.7"
 serde = { version = "1.0.193", features = ["derive"] }
 serde_json = "1.0.108"
+shuttle-axum = { version = "0.35.1", optional = true }
+shuttle-persist = { version = "0.35.1", optional = true }
+shuttle-runtime = { version = "0.35.1", optional = true }
+shuttle-shared-db = { version = "0.35.1", features = ["postgres", "sqlx"], optional = true }
+sqlx = { version = "0.7.3", features = ["runtime-tokio-native-tls", "postgres", "macros"] }
 tokio = { version = "1.28.2", features = ["sync"] }
 tower = "0.4.13"
 tracing = "0.1.40"
 typenum = "1.17.0"
-sqlx = { version = "0.7.3", features = ["runtime-tokio-native-tls", "postgres", "macros"] }
-generic-array = { version = "0.14.7", features = ["zeroize"] }
-chamber-core = { path = "../chamber-core" }
-headers = "0.4.0"
-once_cell = "1.19.0"
-jsonwebtoken = "9.2.0"
-shuttle-axum = "0.35.1"
-shuttle-runtime = "0.35.1"
-shuttle-shared-db = { version = "0.35.1", features = ["postgres", "sqlx"] }
-ring = "0.17.7"

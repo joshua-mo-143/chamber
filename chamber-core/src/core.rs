@@ -1,5 +1,5 @@
 use crate::errors::DatabaseError;
-use crate::secrets::{EncryptedSecret, SecretInfo, Secret};
+use crate::secrets::{EncryptedSecret, Secret, SecretInfo};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -50,9 +50,9 @@ pub trait Database {
     ) -> Result<(), DatabaseError>;
     async fn delete_secret(&self, key: String) -> Result<(), DatabaseError>;
     async fn view_users(&self) -> Result<Vec<User>, DatabaseError>;
-    async fn view_user_by_name(&self, id: String) -> Result<User, DatabaseError>;
+    async fn get_user_from_name(&self, id: String) -> Result<User, DatabaseError>;
     async fn get_user_from_password(&self, password: String) -> Result<User, DatabaseError>;
-    async fn create_user(&self, name: String) -> Result<String, DatabaseError>;
+    async fn create_user(&self, user: User) -> Result<String, DatabaseError>;
     async fn update_user(&self, user: User) -> Result<(), DatabaseError>;
     async fn delete_user(&self, name: String) -> Result<(), DatabaseError>;
 }

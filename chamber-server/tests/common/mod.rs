@@ -15,7 +15,7 @@ pub async fn create_user_and_log_in(addr: SocketAddr, key: &str) -> String {
             Request::builder()
                 .method(http::Method::POST)
                 .uri(format!("http://{}/unseal", addr))
-                .header("x-boulder-key", key)
+                .header("x-chamber-key", key)
                 .header("Content-Type", "application/json")
                 .body(Body::empty())
                 .unwrap(),
@@ -23,6 +23,9 @@ pub async fn create_user_and_log_in(addr: SocketAddr, key: &str) -> String {
         .await
         .unwrap();
 
+    //        let body = response.into_body().collect().await.unwrap().to_bytes();
+    //        let string = std::str::from_utf8(&body).unwrap();
+    //        assert_eq!(string, "The vault is locked!");
     assert_eq!(response.status(), StatusCode::OK);
 
     let response = client
@@ -34,7 +37,8 @@ pub async fn create_user_and_log_in(addr: SocketAddr, key: &str) -> String {
                 .body(Body::from(
                     serde_json::to_vec(&serde_json::json!(
                     {
-                        "password": "password".to_string()
+                        "username": "root",
+                        "password": "this"
                     }
                     ))
                     .unwrap(),
@@ -44,7 +48,7 @@ pub async fn create_user_and_log_in(addr: SocketAddr, key: &str) -> String {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::OK);
+   assert_eq!(response.status(), StatusCode::OK);
 
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let body: Value = serde_json::from_slice(&body).unwrap();

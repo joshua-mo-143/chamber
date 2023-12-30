@@ -1,10 +1,10 @@
 use axum::{
+    extract::Multipart,
     extract::State,
     http::{Request, StatusCode},
     middleware::Next,
     response::IntoResponse,
     Json, TypedHeader,
-    extract::Multipart
 };
 
 use serde::Deserialize;
@@ -14,8 +14,8 @@ use crate::auth::Claims;
 use crate::errors::ApiError;
 
 use chamber_core::core::Database;
-use chamber_core::traits::AppState;
 use chamber_core::secrets::EncryptedSecretBuilder;
+use chamber_core::traits::AppState;
 
 use crate::header::ChamberHeader;
 use chamber_core::core::CreateSecretParams;
@@ -25,10 +25,10 @@ pub async fn create_secret<S: AppState>(
     _claim: Claims,
     Json(secret): Json<CreateSecretParams>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let keyfile = state.get_keyfile();
+    let mut keyfile = state.get_keyfile()?;
 
-        let new_secret = EncryptedSecretBuilder::new(secret.key, secret.value)
-        .with_access_level(secret.access_level) 
+    let new_secret = EncryptedSecretBuilder::new(secret.key, secret.value)
+        .with_access_level(secret.access_level)
         .with_tags(secret.tags)
         .with_whitelist(secret.role_whitelist)
         .build(keyfile.get_crypto_seal_key(), keyfile.nonce_number);
@@ -63,14 +63,14 @@ pub async fn view_secret<S: AppState>(
     claim: Claims,
     Json(secret): Json<SecretKey>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let user = state.db().view_user_by_name(claim.sub).await?;
+    let user = state.db().get_user_from_name(claim.sub).await?;
     let secret = state.db().view_secret_decrypted(user, secret.key).await?;
 
-        let unsealer = state.get_keyfile().get_crypto_open_key(secret.nonce_number.0);
+    let unsealer = state.get_keyfile()?.get_crypto_open_key(secret.nonce.0);
 
-        let res = secret.decrypt(unsealer);
+    let res = secret.decrypt(unsealer);
 
-        Ok(res)
+    Ok(res)
 }
 
 pub async fn view_all_secrets<S: AppState>(
@@ -78,7 +78,7 @@ pub async fn view_all_secrets<S: AppState>(
     claim: Claims,
     Json(secret): Json<ListSecretsArgs>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let user = state.db().view_user_by_name(claim.sub).await?;
+    let user = state.db().get_user_from_name(claim.sub).await?;
 
     let string = state.db().view_all_secrets(user, secret.tag_filter).await?;
 
@@ -96,7 +96,7 @@ pub async fn update_secret<S: AppState>(
     claim: Claims,
     Json(secret): Json<UpdateSecret>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let user = state.db().view_user_by_name(claim.sub).await?;
+    let user = state.db().get_user_from_name(claim.sub).await?;
     let mut secret_key = state.db().view_secret(user, secret.clone().key).await?;
 
     secret_key.replace_tags(secret.update_data);
@@ -117,17 +117,15 @@ pub async fn check_locked<B, S: AppState>(
     }
 }
 
-pub async fn upload_binfile(
-    mut multipart: Multipart
-    ) -> Result<impl IntoResponse, ApiError> {
+pub async fn upload_binfile(mut multipart: Multipart) -> Result<impl IntoResponse, ApiError> {
     while let Some(field) = multipart.next_field().await.unwrap() {
         let data = field.bytes().await.unwrap();
 
         std::fs::write("chamber.bin", data).unwrap();
-    }  
+    }
 
     println!("NEW CHAMBER FILE UPLOADED");
-    
+
     Ok(StatusCode::OK)
 }
 
@@ -135,7 +133,7 @@ pub async fn unlock<S: AppState>(
     State(state): State<Arc<S>>,
     TypedHeader(auth): TypedHeader<ChamberHeader>,
 ) -> Result<impl IntoResponse, ApiError> {
-    if auth.key() != state.get_keyfile().unseal_key() {
+    if auth.key() != state.get_keyfile()?.unseal_key() {
         return Err(ApiError::Forbidden);
     }
 

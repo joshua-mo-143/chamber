@@ -1,22 +1,20 @@
+use crate::errors::DatabaseError;
 use num_traits::cast::ToPrimitive;
- use ring::rand::SystemRandom;
 use ring::rand::SecureRandom;
+use ring::rand::SystemRandom;
 use ring::{
-    aead::{NONCE_LEN, NonceSequence, SealingKey, OpeningKey, BoundKey, Nonce, Aad},
-    error::Unspecified};
+    aead::{Aad, BoundKey, Nonce, NonceSequence, OpeningKey, SealingKey},
+    error::Unspecified,
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_bytes::ByteBuf;
-
-
-use sqlx::Row;
-
 use sqlx::types::BigDecimal;
 
 #[derive(sqlx::FromRow)]
 pub struct EncryptedSecret {
     pub key: String,
     #[sqlx(try_from = "BigDecimal")]
-    pub nonce_number: U64Wrapper,
+    pub nonce: U64Wrapper,
     pub ciphertext: Vec<u8>,
     tags: Vec<String>,
     access_level: i32,
@@ -37,47 +35,63 @@ impl EncryptedSecretBuilder {
         Self {
             key,
             value,
-            .. Default::default()
+            ..Default::default()
         }
     }
 
     pub fn with_tags(mut self, tags: Option<Vec<String>>) -> Self {
         if let Some(tags) = tags {
-        self.tags = Some(tags);
+            self.tags = Some(tags);
         }
         self
     }
 
     pub fn with_access_level(mut self, access_level: Option<i32>) -> Self {
         if let Some(access_level) = access_level {
-        self.access_level = Some(access_level);
+            self.access_level = Some(access_level);
         }
         self
     }
 
     pub fn with_whitelist(mut self, role_whitelist: Option<Vec<String>>) -> Self {
         if let Some(role_whitelist) = role_whitelist {
-        self.role_whitelist = Some(role_whitelist);
+            self.role_whitelist = Some(role_whitelist);
         }
         self
     }
 
-    pub fn build(self, mut sealing_key: SealingKey<NonceCounter>, nonce_num: u64) -> EncryptedSecret { 
+    pub fn build(
+        self,
+        mut sealing_key: SealingKey<NonceCounter>,
+        nonce_num: u64,
+    ) -> EncryptedSecret {
         let aad = Aad::empty();
 
-        let mut transformed_in_place: Vec<u8> = self.value.into_bytes(); 
+        let mut transformed_in_place: Vec<u8> = self.value.into_bytes();
 
-        sealing_key.seal_in_place_append_tag(aad, &mut transformed_in_place).unwrap();
+        sealing_key
+            .seal_in_place_append_tag(aad, &mut transformed_in_place)
+            .unwrap();
 
         EncryptedSecret {
-           key: self.key,
-           nonce_number: U64Wrapper(nonce_num),
-           ciphertext: transformed_in_place,
-           tags: if let Some(tags) = self.tags {    
+            key: self.key,
+            nonce: U64Wrapper(nonce_num),
+            ciphertext: transformed_in_place,
+            tags: if let Some(tags) = self.tags {
                 tags
-           } else {Vec::new()},
-           access_level: if let Some(access_level) = self.access_level {access_level} else {0},
-           role_whitelist: if let Some(whitelist) = self.role_whitelist {whitelist} else {Vec::new()}
+            } else {
+                Vec::new()
+            },
+            access_level: if let Some(access_level) = self.access_level {
+                access_level
+            } else {
+                0
+            },
+            role_whitelist: if let Some(whitelist) = self.role_whitelist {
+                whitelist
+            } else {
+                Vec::new()
+            },
         }
     }
 }
@@ -85,22 +99,20 @@ impl EncryptedSecretBuilder {
 #[derive(sqlx::FromRow)]
 pub struct Secret {
     #[sqlx(try_from = "BigDecimal")]
-    pub nonce_number: U64Wrapper,
+    pub nonce: U64Wrapper,
     pub ciphertext: Vec<u8>,
 }
 
-impl<'a> Secret {
+impl Secret {
     pub fn decrypt(&self, mut seq: OpeningKey<NonceCounter>) -> String {
-         
         let _aad = Aad::empty();
 
         let mut tag = self.ciphertext.clone();
 
-        let decrypted_data = seq.open_in_place(Aad::empty(), &mut tag).unwrap();
+        let plaintext = seq.open_in_place(Aad::empty(), &mut tag).unwrap();
 
-        String::from_utf8(decrypted_data.to_vec()).unwrap()
-    } 
-
+        String::from_utf8(plaintext.to_vec()).unwrap()
+    }
 }
 
 #[derive(sqlx::FromRow, Clone, Serialize, Deserialize, Debug)]
@@ -117,7 +129,7 @@ impl<'a> EncryptedSecret {
     }
 
     pub fn nonce(&self) -> u64 {
-        self.nonce_number.0
+        self.nonce.0
     }
 
     pub fn ciphertext(&self) -> &[u8] {
@@ -184,8 +196,6 @@ impl SerializeKey {
     }
 
     pub fn make_key(&self) -> ring::aead::UnboundKey {
-        
-
         ring::aead::UnboundKey::new(&ring::aead::AES_256_GCM, &self.0).unwrap()
     }
 }
@@ -217,7 +227,7 @@ impl<'de> Deserialize<'de> for SerializeKey {
 pub struct KeyFile {
     unlock_key: String,
     crypto_key: SerializeKey,
-    pub nonce_number: u64
+    pub nonce_number: u64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -234,7 +244,7 @@ impl<'b> KeyFile {
         Self {
             unlock_key: nanoid::nanoid!(100),
             crypto_key: SerializeKey::new(),
-            nonce_number: 1
+            nonce_number: 1,
         }
     }
 
@@ -242,7 +252,7 @@ impl<'b> KeyFile {
         Self {
             unlock_key: string.to_owned(),
             crypto_key: SerializeKey::new(),
-            nonce_number: 1
+            nonce_number: 1,
         }
     }
 
@@ -250,18 +260,32 @@ impl<'b> KeyFile {
         &self.unlock_key
     }
 
-    pub fn get_crypto_seal_key(&self) -> SealingKey<NonceCounter> {
+    pub fn save(&self) -> Result<(), DatabaseError> {
+        let _thing = self;
+        let encoded = bincode::serialize(&self).unwrap();
+
+        match std::fs::write("chamber.bin", encoded) {
+            Ok(res) => res,
+            Err(e) => return Err(DatabaseError::IoError(e)),
+        };
+        Ok(())
+    }
+
+    pub fn get_crypto_seal_key(&mut self) -> SealingKey<NonceCounter> {
         let nonce_sequence = NonceCounter(self.nonce_number);
 
         let unbound_key = self.crypto_key.make_key();
-        SealingKey::new(unbound_key, nonce_sequence) 
+        self.nonce_number += 1;
+
+        self.save();
+        SealingKey::new(unbound_key, nonce_sequence)
     }
 
     pub fn get_crypto_open_key(&self, num: u64) -> OpeningKey<NonceCounter> {
         let nonce_sequence = NonceCounter(num);
 
         let unbound_key = self.crypto_key.make_key();
-        OpeningKey::new(unbound_key, nonce_sequence) 
+        OpeningKey::new(unbound_key, nonce_sequence)
     }
 }
 
@@ -288,13 +312,12 @@ impl NonceCounter {
 impl NonceSequence for NonceCounter {
     // called once for each seal operation
     fn advance(&mut self) -> Result<Nonce, Unspecified> {
-        let mut nonce_bytes = vec![0; NONCE_LEN];
+        let mut nonce_bytes: [u8; 12] = [0; 12];
 
         let bytes = self.0.to_be_bytes();
-        nonce_bytes[8..].copy_from_slice(&bytes);
+        nonce_bytes[4..].copy_from_slice(&bytes);
 
         self.0 += 1; // advance the counter
-        Nonce::try_assume_unique_for_key(&nonce_bytes)
+        Ok(Nonce::try_assume_unique_for_key(&nonce_bytes).unwrap())
     }
 }
-

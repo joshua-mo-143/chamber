@@ -1,28 +1,20 @@
-use chamber_core::postgres::Postgres;
-
-use chamber_core::secrets::KeyFile;
-use chamber_server::router::init_router;
-
+use shuttle_persist::PersistInstance;
 use sqlx::PgPool;
 
-use chamber_core::core::LockedStatus;
+use chamber_core::traits::AppState;
+use chamber_core::traits::ShuttleAppState;
+use chamber_server::router::init_router;
 
 #[shuttle_runtime::main]
-async fn main(#[shuttle_shared_db::Postgres] db: PgPool) -> shuttle_axum::ShuttleAxum {
+async fn main(
+    #[shuttle_shared_db::Postgres] db: PgPool,
+    #[shuttle_persist::Persist] persist: PersistInstance,
+) -> shuttle_axum::ShuttleAxum {
     sqlx::migrate!().run(&db).await.unwrap();
 
-    let db = Postgres::from_pool(db);
+    let state = ShuttleAppState::new(db, persist);
 
-    let state = chamber_core::traits::RegularAppState { db, lock: LockedStatus::default()}; 
-    if std::fs::read("chamber.bin").is_err() {
-        println!("No chamber.bin file attached, generating one now...");
-        let key = KeyFile::new();
-        println!("Your root key is: {}", key.unseal_key());
-        let encoded = bincode::serialize(&key).unwrap();
-
-             std::fs::write("chamber.bin", encoded).unwrap();
-        println!("Successfully saved. Don't forget that you can generate a new chamber file from the CLI and upload it!");
-    }
+    state.check_keyfile_exists();
 
     let router = init_router(state);
 

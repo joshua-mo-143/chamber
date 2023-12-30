@@ -3,9 +3,8 @@ use crate::errors::DatabaseError;
 use crate::secrets::{EncryptedSecret, Secret};
 use crate::users::User;
 use nanoid::nanoid;
-use sqlx::PgPool;
 use sqlx::types::BigDecimal;
-
+use sqlx::PgPool;
 
 use crate::secrets::SecretInfo;
 
@@ -29,7 +28,7 @@ impl Database for Postgres {
                     ($1, $2, $3, $4, $5, $6)",
         )
         .bind(new_secret.key())
-        .bind(BigDecimal::from(new_secret.nonce_number.0))
+        .bind(BigDecimal::from(new_secret.nonce.0 - 1))
         .bind(new_secret.ciphertext())
         .bind(new_secret.tags())
         .bind(new_secret.access_level())
@@ -131,7 +130,7 @@ impl Database for Postgres {
         Ok(query)
     }
 
-    async fn view_user_by_name(&self, username: String) -> Result<User, DatabaseError> {
+    async fn get_user_from_name(&self, username: String) -> Result<User, DatabaseError> {
         let query = sqlx::query_as::<_, User>(
             "SELECT username, password, access_level, roles FROM USERS WHERE USERNAME = $1",
         )
@@ -153,16 +152,15 @@ impl Database for Postgres {
         Ok(query)
     }
 
-    async fn create_user(&self, name: String) -> Result<String, DatabaseError> {
-        let password = nanoid!(20);
+    async fn create_user(&self, user: User) -> Result<String, DatabaseError> {
         let query = sqlx::query_as::<_, SingleValue>(
             "INSERT INTO users
             (username, password)
             VALUES
             ($1, $2) RETURNING PASSWORD",
         )
-        .bind(name)
-        .bind(password)
+        .bind(user.username)
+        .bind(user.password)
         .fetch_one(&self.0)
         .await?;
 

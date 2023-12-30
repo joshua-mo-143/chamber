@@ -5,8 +5,8 @@ use axum::{
     Router,
 };
 
-use std::sync::Arc;
 use chamber_core::traits::AppState;
+use std::sync::Arc;
 
 pub fn init_router<S: AppState>(state: S) -> Router {
     let state = Arc::new(state);

@@ -21,7 +21,9 @@ impl IntoResponse for ApiError {
                 (StatusCode::LOCKED, "The vault is locked!".to_string()).into_response()
             }
             Self::DBError(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-            Self::Utf8Error(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+            Self::Utf8Error(e) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response()
+            }
         }
     }
 }
@@ -36,5 +38,4 @@ impl From<std::str::Utf8Error> for ApiError {
     fn from(e: std::str::Utf8Error) -> Self {
         Self::Utf8Error(e)
     }
-
 }

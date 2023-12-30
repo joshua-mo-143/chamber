@@ -1,4 +1,9 @@
 use crate::errors::DatabaseError;
+use argon2::{
+    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    Argon2,
+};
+
 use serde::Serialize;
 
 #[derive(Clone, sqlx::FromRow, Serialize)]
@@ -10,18 +15,30 @@ pub struct User {
 }
 
 impl<'a> User {
-    pub fn new(username: String, password: Option<String>) -> Self {
-        let password = match password {
-            Some(password) => password,
-            None => nanoid::nanoid!(20),
-        };
+    pub fn new(username: String, password: String) -> Self {
+        let password = password.into_bytes();
+
+        let salt = SaltString::generate(&mut OsRng);
+
+        // Argon2 with default params (Argon2id v19)
+        let argon2 = Argon2::default();
+
+        // Hash password to PHC string ($argon2id$v=19$...)
+        let password_hash = argon2.hash_password(&password, &salt).unwrap().to_string();
 
         Self {
             username,
-            password,
+            password: password_hash,
             access_level: 0,
             roles: Vec::new(),
         }
+    }
+
+    pub fn verify(&self, pw: &str) -> Result<(), DatabaseError> {
+        let parsed_hash = PasswordHash::new(&self.password)?;
+        Argon2::default().verify_password(pw.as_bytes(), &parsed_hash)?;
+
+        Ok(())
     }
 
     pub fn access_level(&self) -> i32 {
