@@ -22,7 +22,8 @@ shuttle = ["dep:shuttle-axum", "dep:shuttle-runtime", "dep:shuttle-persist", "de
 [dependencies]
 axum = { version = "0.6.20", features = ["headers", "multipart"] }
 bincode = "1.3.3"
-chamber-core = { path = "../chamber-core" }
+#chamber-core = { path = "../chamber-core" }
+chamber-core = { version = "0.2.0" }
 chrono = { version = "0.4.31", features = ["clock", "serde"] }
 generic-array = { version = "0.14.7", features = ["zeroize"] }
 headers = "0.4.0"
