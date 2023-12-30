@@ -39,6 +39,21 @@ impl Database for Postgres {
         Ok(())
     }
 
+    async fn view_all_secrets_admin(
+        &self,
+    ) -> Result<Vec<EncryptedSecret>, DatabaseError> {
+        let retrieved_keys = sqlx::query_as::<_, EncryptedSecret>(
+            "SELECT 
+            key, nonce, ciphertext, tags, access_level, role_whitelist
+            FROM secrets
+                ",
+        )
+        .fetch_all(&self.0)
+        .await?;
+
+        Ok(retrieved_keys)
+    }
+
     async fn view_all_secrets(
         &self,
         user: User,
@@ -75,6 +90,25 @@ impl Database for Postgres {
             .await?;
 
         Ok(())
+    }
+
+    async fn rekey_all_secrets(&self, secrets: Vec<EncryptedSecret>) -> Result<(), DatabaseError> {
+        let transaction = self.0.try_begin().await?.unwrap();
+
+        for secret in secrets {
+            if let Err(e) = sqlx::query("UPDATE secrets SET ciphertext = $1 WHERE key = $2")
+            .bind(secret.ciphertext())
+            .bind(secret.key())
+            .execute(&self.0)
+            .await {
+                transaction.rollback().await?;
+                return Err(DatabaseError::SQLError(e));
+            }
+        }
+
+        transaction.commit().await?;
+        Ok(())
+
     }
 
     async fn view_secret(&self, user: User, key: String) -> Result<EncryptedSecret, DatabaseError> {

@@ -5,6 +5,7 @@ use crate::Postgres;
 use sqlx::PgPool;
 
 use shuttle_persist::PersistInstance;
+use crate::consts::KEYFILE_PATH;
 
 #[async_trait::async_trait]
 pub trait AppState: Clone + Send + Sync + 'static {
@@ -25,13 +26,16 @@ pub trait AppState: Clone + Send + Sync + 'static {
         Ok(true)
     }
     fn check_keyfile_exists(&self) {
-        if std::fs::read("chamber.bin").is_err() {
+        if std::fs::read(KEYFILE_PATH).is_err() {
             println!("No chamber.bin file attached, generating one now...");
             let key = KeyFile::new();
             println!("Your root key is: {}", key.unseal_key());
+
             let encoded = bincode::serialize(&key).unwrap();
 
-            std::fs::write("chamber.bin", encoded).unwrap();
+            std::fs::create_dir("data").unwrap();
+
+            std::fs::write(KEYFILE_PATH, encoded).unwrap();
             println!("Successfully saved. Don't forget that you can generate a new chamber file from the CLI and upload it!");
         }
     }
@@ -97,7 +101,7 @@ impl AppState for RegularAppState {
     }
     fn get_keyfile(&self) -> Result<KeyFile, DatabaseError> {
         self.check_keyfile_exists();
-        let res = match std::fs::read("chamber.bin") {
+        let res = match std::fs::read(KEYFILE_PATH) {
             Ok(res) => res,
             Err(e) => return Err(DatabaseError::IoError(e)),
         };

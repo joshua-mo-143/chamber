@@ -6,7 +6,11 @@ use axum::{
     response::IntoResponse,
     Json, TypedHeader,
 };
+use chamber_core::consts::KEYFILE_PATH;
+use ring::aead::{OpeningKey, SealingKey, BoundKey};
+use chamber_core::secrets::EncryptedSecret;
 
+use chamber_core::secrets::{KeyFile, NonceCounter};
 use serde::Deserialize;
 use std::sync::Arc;
 
@@ -117,12 +121,41 @@ pub async fn check_locked<B, S: AppState>(
     }
 }
 
-pub async fn upload_binfile(mut multipart: Multipart) -> Result<impl IntoResponse, ApiError> {
-    while let Some(field) = multipart.next_field().await.unwrap() {
-        let data = field.bytes().await.unwrap();
+pub async fn upload_binfile<S: AppState>(
+    State(state): State<Arc<S>>,
+    mut multipart: Multipart
+    ) -> Result<impl IntoResponse, ApiError> {
 
-        std::fs::write("chamber.bin", data).unwrap();
+    let mut data: Option<Vec<u8>> = None;
+
+    while let Some(field) = multipart.next_field().await.unwrap() {
+        data = Some(field.bytes().await.unwrap().to_vec());
     }
+
+    let data: Vec<u8> = data.unwrap();
+
+    let decoded: KeyFile = bincode::deserialize(&data.clone()).unwrap();
+
+    let secrets = state.db().view_all_secrets_admin().await?;
+    
+    let secrets: Vec<EncryptedSecret> = secrets.into_iter().map(|mut secret| {
+        let unbound_key_old = state.get_keyfile().unwrap().crypto_key().make_key(); 
+        let unbound_key_new = decoded.crypto_key().make_key(); 
+
+        let nonce_sequence_open = NonceCounter::from_num(secret.nonce.inner());
+        let nonce_sequence_seal = NonceCounter::from_num(secret.nonce.inner());
+        let opening_key = OpeningKey::new(unbound_key_old, nonce_sequence_open);
+        let sealing_key = SealingKey::new(unbound_key_new, nonce_sequence_seal);
+
+        secret.reencrypt(opening_key, sealing_key);
+
+        secret
+    }).collect();
+
+
+    state.db().rekey_all_secrets(secrets).await?;
+
+    std::fs::write(KEYFILE_PATH, data).unwrap();
 
     println!("NEW CHAMBER FILE UPLOADED");
 

@@ -11,6 +11,8 @@ use serde_bytes::ByteBuf;
 use sqlx::types::BigDecimal;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+use crate::consts::KEYFILE_PATH;
+
 #[derive(sqlx::FromRow, Zeroize, ZeroizeOnDrop)]
 pub struct EncryptedSecret {
     pub key: String,
@@ -22,7 +24,7 @@ pub struct EncryptedSecret {
     role_whitelist: Vec<String>,
 }
 
-#[derive(sqlx::FromRow, Clone, Default)]
+#[derive(Default)]
 pub struct EncryptedSecretBuilder {
     pub key: String,
     value: String,
@@ -106,11 +108,11 @@ pub struct Secret {
 
 impl Secret {
     pub fn decrypt(&self, mut seq: OpeningKey<NonceCounter>) -> String {
-        let _aad = Aad::empty();
+        let aad = Aad::empty();
 
         let mut tag = self.ciphertext.clone();
 
-        let plaintext = seq.open_in_place(Aad::empty(), &mut tag).unwrap();
+        let plaintext = seq.open_in_place(aad, &mut tag).unwrap();
 
         String::from_utf8(plaintext.to_vec()).unwrap()
     }
@@ -184,21 +186,50 @@ impl<'a> EncryptedSecret {
     pub fn remove_role_from_whitelist(&mut self, role: String) {
         self.role_whitelist.retain(|x| x != &role);
     }
+
+    pub fn reencrypt(
+        &mut self,
+        mut open_key: OpeningKey<NonceCounter>,
+        mut sealing_key: SealingKey<NonceCounter>
+        ) {
+        let aad = Aad::empty();
+
+        let mut tag = self.ciphertext.clone();
+
+        let key = open_key.open_in_place(aad, &mut tag).unwrap();
+
+        let plaintext = String::from_utf8(key.to_vec()).unwrap();
+        
+        let mut transformed_in_place: Vec<u8> = plaintext.into_bytes();
+
+        sealing_key
+            .seal_in_place_append_tag(aad, &mut transformed_in_place)
+            .unwrap();
+
+        self.ciphertext = transformed_in_place;
+
+    }
 }
 
 #[derive(Zeroize, ZeroizeOnDrop)]
-struct SerializeKey(pub Vec<u8>);
+pub struct SerializeKey(pub Vec<u8>);
 
 impl SerializeKey {
     pub fn new() -> Self {
-        let meme = SystemRandom::new();
+        let rand = SystemRandom::new();
         let mut key: [u8; 32] = [0u8; 32];
-        let _ = meme.fill(&mut key);
+        let _ = rand.fill(&mut key);
         Self(key.to_vec())
     }
 
     pub fn make_key(&self) -> ring::aead::UnboundKey {
         ring::aead::UnboundKey::new(&ring::aead::AES_256_GCM, &self.0).unwrap()
+    }
+}
+
+impl Default for SerializeKey {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -232,15 +263,6 @@ pub struct KeyFile {
     pub nonce_number: u64,
 }
 
-#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
-pub struct U64Wrapper(pub u64);
-
-impl From<BigDecimal> for U64Wrapper {
-    fn from(decimal: BigDecimal) -> Self {
-        Self(decimal.to_u64().unwrap())
-    }
-}
-
 impl<'b> KeyFile {
     pub fn new() -> Self {
         Self {
@@ -248,6 +270,10 @@ impl<'b> KeyFile {
             crypto_key: SerializeKey::new(),
             nonce_number: 1,
         }
+    }
+
+    pub fn crypto_key(&'b self) -> &'b SerializeKey {
+        &self.crypto_key
     }
 
     pub fn from_key(string: &str) -> Self {
@@ -266,7 +292,7 @@ impl<'b> KeyFile {
         let _thing = self;
         let encoded = bincode::serialize(&self).unwrap();
 
-        match std::fs::write("chamber.bin", encoded) {
+        match std::fs::write(KEYFILE_PATH, encoded) {
             Ok(res) => res,
             Err(e) => return Err(DatabaseError::IoError(e)),
         };
@@ -297,6 +323,21 @@ impl Default for KeyFile {
     }
 }
 
+#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+pub struct U64Wrapper(pub u64);
+
+impl U64Wrapper {
+    pub fn inner(&self) -> u64 {
+        self.0
+    }
+}
+
+impl From<BigDecimal> for U64Wrapper {
+    fn from(decimal: BigDecimal) -> Self {
+        Self(decimal.to_u64().unwrap())
+    }
+}
+
 pub struct NonceCounter(u64);
 
 impl Default for NonceCounter {
@@ -308,6 +349,10 @@ impl Default for NonceCounter {
 impl NonceCounter {
     pub fn new() -> Self {
         Self(1)
+    }
+
+    pub fn from_num(num: u64) -> Self {
+        Self(num)
     }
 }
 

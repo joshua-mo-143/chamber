@@ -3,6 +3,7 @@ use chamber_core::traits::RegularAppState;
 use chamber_server::router::init_router;
 
 mod common;
+const BOUNDARY: &'static str = "------------------------ea3bbcf87c101592";
 
 #[cfg(test)]
 mod tests {
@@ -14,6 +15,8 @@ mod tests {
     use std::net::SocketAddr;
     use std::net::TcpListener;
 
+    use chamber_core::secrets::KeyFile;
+    use std::io::Write;
     use tower::ServiceExt;
 
     #[tokio::test]
@@ -282,5 +285,82 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn rekeying_works() {
+        let pool = common::postgres::get_test_db_connection().await;
+        let state = RegularAppState::new(pool);
+
+        let app = init_router(state.clone());
+
+        let listener = TcpListener::bind("0.0.0.0:0".parse::<SocketAddr>().unwrap()).unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        tokio::spawn(async move {
+            axum::Server::from_tcp(listener)
+                .unwrap()
+                .serve(app.into_make_service())
+                .await
+                .unwrap();
+        });
+
+        let jwt_key =
+            common::create_user_and_log_in(addr, state.get_keyfile().unwrap().unseal_key()).await;
+
+        println!("{jwt_key}");
+
+        let client = hyper::Client::new();
+
+    let keyfile = KeyFile::new();
+
+    let encoded = bincode::serialize(&keyfile).unwrap();
+
+    let mut data = Vec::new();
+    write!(data, "--{}\r\n", BOUNDARY).unwrap();
+    write!(data, "Content-Disposition: form-data; name=\"file\"; filename=\"chamber.bin\"\r\n").unwrap();
+    write!(data, "Content-Type: \r\n").unwrap();
+    write!(data, "\r\n").unwrap();
+
+    data.write(encoded.as_slice()).unwrap();
+
+    write!(data, "\r\n").unwrap(); // The key thing you are missing
+    write!(data, "--{}--\r\n", BOUNDARY).unwrap();
+
+        let response = client
+            .request(
+                Request::builder()
+                    .header("Authorization", &jwt_key)
+                    .header("Content-Type", &*format!("multipart/form-data; boundary={}", BOUNDARY))
+                    .uri(format!("http://{}/binfile", addr))
+                    .method(http::Method::POST)
+                    .body(data.into())
+                    .unwrap()
+                    )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response = client
+            .request(
+                Request::builder()
+                    .header("Authorization", &jwt_key)
+                    .header("Content-Type", "application/json")
+                    .uri(format!("http://{}/secrets/get", addr))
+                    .method(http::Method::POST)
+                    .body(Body::from(
+                        serde_json::to_vec(&serde_json::json!({"key": "test key"})).unwrap(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
+        let body = std::str::from_utf8(&body).unwrap();
+        assert_eq!(body, "test key");
     }
 }
