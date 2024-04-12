@@ -1,4 +1,4 @@
-use crate::consts::LOGIN_URL;
+use crate::consts::{GET_SECRETS_URL, LOGIN_URL};
 use reqwest::Client as ReqClient;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -35,15 +35,14 @@ impl Client {
             .send()
             .await?;
 
-        if response.status() != StatusCode::OK {
-            todo!("Implement Result for this");
-        }
-
-        let json: AuthBody = response.json().await?;
+        let token = match response.status() {
+            StatusCode::OK => response.json::<AuthBody>().await?,
+            _ => return Err(ClientError::RequestError(response.text().await?)),
+        };
 
         self.credentials
             .to_owned()
-            .set_jwt(format!("{} {}", json.token_type, json.access_token));
+            .set_jwt(format!("{} {}", token.token_type, token.access_token));
 
         Ok(self)
     }
@@ -60,7 +59,7 @@ impl Client {
 
         let response = self
             .ctx
-            .post("http://localhost:8000/login")
+            .post(format!("{}{}", self.url, GET_SECRETS_URL))
             .header("Authorization", jwt)
             .json(&json)
             .send()
@@ -71,6 +70,38 @@ impl Client {
             _ => Err(ClientError::RequestError(response.text().await?)),
         }
     }
+
+    pub async fn get_secrets_with_tag(&self, tag: &str) -> Result<Vec<SecretInfo>, ClientError> {
+        let jwt = match &self.credentials.jwt {
+            Some(res) => res,
+            None => todo!("Implement error here"),
+        };
+
+        let json = json!({
+            "tag_filter": tag
+        });
+
+        let response = self
+            .ctx
+            .post(format!("{}{}", self.url, GET_SECRETS_URL))
+            .header("Authorization", jwt)
+            .json(&json)
+            .send()
+            .await?;
+
+        match response.status() {
+            StatusCode::OK => Ok(response.json::<Vec<SecretInfo>>().await?),
+            _ => Err(ClientError::RequestError(response.text().await?)),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct SecretInfo {
+    pub key: String,
+    pub tags: Vec<String>,
+    pub access_level: i32,
+    pub role_whitelist: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
