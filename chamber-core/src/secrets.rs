@@ -1,4 +1,5 @@
 use crate::errors::DatabaseError;
+use crate::signing::{fetch_signing_key, verify_bytes, SigWrapper};
 use num_traits::cast::ToPrimitive;
 use ring::rand::SecureRandom;
 use ring::rand::SystemRandom;
@@ -10,6 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_bytes::ByteBuf;
 use sqlx::types::BigDecimal;
 use zeroize::{Zeroize, ZeroizeOnDrop};
+use ed25519_dalek::Signer;
 
 use crate::consts::KEYFILE_PATH;
 
@@ -18,6 +20,8 @@ pub struct EncryptedSecret {
     pub key: String,
     #[sqlx(try_from = "BigDecimal")]
     pub nonce: U64Wrapper,
+    #[sqlx(try_from = "Vec<u8>")]
+    pub sig: SigWrapper,
     pub ciphertext: Vec<u8>,
     tags: Vec<String>,
     access_level: i32,
@@ -68,9 +72,15 @@ impl EncryptedSecretBuilder {
         mut sealing_key: SealingKey<NonceCounter>,
         nonce_num: u64,
     ) -> EncryptedSecret {
+        let signing_key = fetch_signing_key().unwrap();
+
+        let value_as_bytes = self.value.into_bytes();
+
+        let sig = signing_key.sign(&value_as_bytes);
+
         let aad = Aad::empty();
 
-        let mut transformed_in_place: Vec<u8> = self.value.into_bytes();
+        let mut transformed_in_place = value_as_bytes.clone();
 
         sealing_key
             .seal_in_place_append_tag(aad, &mut transformed_in_place)
@@ -79,6 +89,7 @@ impl EncryptedSecretBuilder {
         EncryptedSecret {
             key: self.key,
             nonce: U64Wrapper(nonce_num),
+            sig: SigWrapper::new(sig),
             ciphertext: transformed_in_place,
             tags: if let Some(tags) = self.tags {
                 tags
@@ -104,15 +115,22 @@ pub struct Secret {
     #[sqlx(try_from = "BigDecimal")]
     pub nonce: U64Wrapper,
     pub ciphertext: Vec<u8>,
+    pub sig: Vec<u8>
 }
 
 impl Secret {
     pub fn decrypt(&self, mut seq: OpeningKey<NonceCounter>) -> String {
+        let sig: [u8; 64] = self.sig.clone().try_into().unwrap();
+        
         let aad = Aad::empty();
 
         let mut tag = self.ciphertext.clone();
 
         let plaintext = seq.open_in_place(aad, &mut tag).unwrap();
+
+        let signing_key = fetch_signing_key().unwrap();
+
+        verify_bytes(plaintext, &sig, signing_key).unwrap();
 
         String::from_utf8(plaintext.to_vec()).unwrap()
     }
@@ -199,7 +217,7 @@ impl<'a> EncryptedSecret {
         let key = open_key.open_in_place(aad, &mut tag).unwrap();
 
         let plaintext = String::from_utf8(key.to_vec()).unwrap();
-        
+
         let mut transformed_in_place: Vec<u8> = plaintext.into_bytes();
 
         sealing_key
@@ -338,6 +356,7 @@ impl From<BigDecimal> for U64Wrapper {
     }
 }
 
+#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct NonceCounter(u64);
 
 impl Default for NonceCounter {
@@ -353,6 +372,10 @@ impl NonceCounter {
 
     pub fn from_num(num: u64) -> Self {
         Self(num)
+    }
+
+    pub fn inner(&self) -> u64 {
+        self.0
     }
 }
 

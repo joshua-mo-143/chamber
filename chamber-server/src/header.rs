@@ -1,4 +1,4 @@
-use axum::headers::{Header, HeaderName, HeaderValue};
+use axum_extra::headers::{Error, Header, HeaderName, HeaderValue};
 
 static X: HeaderName = HeaderName::from_static("x-chamber-key");
 static CUSTOM_CHAMBER_HEADER: &HeaderName = &X;
@@ -16,11 +16,11 @@ impl Header for ChamberHeader {
         CUSTOM_CHAMBER_HEADER
     }
 
-    fn decode<'i, I>(values: &mut I) -> Result<Self, axum::headers::Error>
+    fn decode<'i, I>(values: &mut I) -> Result<Self, Error>
     where
         I: Iterator<Item = &'i HeaderValue>,
     {
-        let value = values.next().ok_or_else(axum::headers::Error::invalid)?;
+        let value = values.next().ok_or_else(Error::invalid)?;
 
         Ok(ChamberHeader(value.to_str().unwrap().to_owned()))
     }

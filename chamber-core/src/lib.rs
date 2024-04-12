@@ -5,5 +5,6 @@ pub mod postgres;
 pub mod secrets;
 pub mod traits;
 pub mod users;
+pub mod signing;
 
 pub use postgres::Postgres;

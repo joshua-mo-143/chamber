@@ -4,8 +4,9 @@ use axum::{
     http::{Request, StatusCode},
     middleware::Next,
     response::IntoResponse,
-    Json, TypedHeader,
+    Json,
 };
+use axum_extra::TypedHeader;
 use chamber_core::consts::KEYFILE_PATH;
 use ring::aead::{OpeningKey, SealingKey, BoundKey};
 use chamber_core::secrets::EncryptedSecret;
@@ -110,10 +111,10 @@ pub async fn update_secret<S: AppState>(
     Ok(StatusCode::OK)
 }
 
-pub async fn check_locked<B, S: AppState>(
+pub async fn check_locked<S: AppState>(
     State(state): State<Arc<S>>,
-    req: Request<B>,
-    next: Next<B>,
+    req: Request<axum::body::Body>,
+    next: Next,
 ) -> Result<impl IntoResponse, ApiError> {
     match state.locked_status().is_locked().await {
         false => Ok(next.run(req).await),

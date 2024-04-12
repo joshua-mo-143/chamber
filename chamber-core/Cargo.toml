@@ -25,10 +25,12 @@ ring = { workspace = true }
 serde = { workspace = true }
 serde_bytes = "0.11.12"
 serde_json = { workspace = true }
-shuttle-persist =  { version = "0.35.1" }
+shuttle-persist =  { version = "0.43.0" }
 sqlx = { workspace = true, features = ["bigdecimal"] }
 tokio = { workspace = true }
 tower = { workspace = true }
 tracing = { workspace = true }
 typenum = { workspace = true }
+ed25519-dalek = { workspace = true }
 zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
+rand = "0.8.5"

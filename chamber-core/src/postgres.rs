@@ -23,12 +23,13 @@ impl Database for Postgres {
         // you might need to convert to Vec<u8> here for the Nonce
         sqlx::query(
             "INSERT INTO SECRETS 
-                    (key, nonce, ciphertext, tags, access_level, role_whitelist)
+                    (key, nonce, sig, ciphertext, tags, access_level, role_whitelist)
                     VALUES
-                    ($1, $2, $3, $4, $5, $6)",
+                    ($1, $2, $3, $4, $5, $6, $7)",
         )
         .bind(new_secret.key())
         .bind(BigDecimal::from(new_secret.nonce.0 - 1))
+        .bind(new_secret.sig.inner())
         .bind(new_secret.ciphertext())
         .bind(new_secret.tags())
         .bind(new_secret.access_level())

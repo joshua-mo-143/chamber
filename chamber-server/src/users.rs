@@ -1,4 +1,5 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json, TypedHeader};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum_extra::TypedHeader;
 use serde::Deserialize;
 
 use crate::errors::ApiError;

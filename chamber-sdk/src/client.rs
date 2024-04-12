@@ -1,0 +1,141 @@
+use crate::consts::LOGIN_URL;
+use reqwest::Client as ReqClient;
+use reqwest::StatusCode;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use url::Url;
+
+pub struct Client {
+    ctx: ReqClient,
+    url: Url,
+    credentials: Credentials,
+}
+
+impl Client {
+    fn builder() -> ClientBuilder {
+        ClientBuilder {
+            ctx: ReqClient::new(),
+            url: None,
+            credentials: None,
+        }
+    }
+}
+
+impl Client {
+    pub async fn login(self, username: String, password: String) -> Result<Self, ClientError> {
+        let json = json!({
+            "username": username,
+            "password": password
+        });
+
+        let response = self
+            .ctx
+            .post(format!("{}{}", self.url, LOGIN_URL))
+            .json(&json)
+            .send()
+            .await?;
+
+        if response.status() != StatusCode::OK {
+            todo!("Implement Result for this");
+        }
+
+        let json: AuthBody = response.json().await?;
+
+        self.credentials
+            .to_owned()
+            .set_jwt(format!("{} {}", json.token_type, json.access_token));
+
+        Ok(self)
+    }
+
+    pub async fn get_secret(&self, key: &str) -> Result<String, ClientError> {
+        let jwt = match &self.credentials.jwt {
+            Some(res) => res,
+            None => todo!("Implement error here"),
+        };
+
+        let json = json!({
+            "key": key
+        });
+
+        let response = self
+            .ctx
+            .post("http://localhost:8000/login")
+            .header("Authorization", jwt)
+            .json(&json)
+            .send()
+            .await?;
+
+        match response.status() {
+            StatusCode::OK => Ok(response.text().await?),
+            _ => Err(ClientError::RequestError(response.text().await?)),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AuthBody {
+    pub access_token: String,
+    pub token_type: String,
+}
+
+pub struct ClientBuilder {
+    ctx: ReqClient,
+    url: Option<Url>,
+    credentials: Option<Credentials>,
+}
+
+impl ClientBuilder {
+    fn url(mut self, url: &str) -> Self {
+        let url = Url::parse(url).unwrap();
+
+        self.url = Some(url);
+        self
+    }
+
+    fn credentials(mut self, api_key: &str) -> Self {
+        let creds = Credentials::new(api_key);
+        self.credentials = Some(creds);
+
+        self
+    }
+
+    fn build(self) -> Client {
+        if self.url.is_none() | self.credentials.is_none() {
+            panic!("The URL or API key is unset!");
+        }
+
+        Client {
+            ctx: self.ctx,
+            url: self.url.unwrap(),
+            credentials: self.credentials.unwrap(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Credentials {
+    api_key: String,
+    jwt: Option<String>,
+}
+
+impl Credentials {
+    pub fn new(api_key: &str) -> Self {
+        Self {
+            api_key: api_key.to_owned(),
+            jwt: None,
+        }
+    }
+
+    fn set_jwt(mut self, jwt: String) {
+        self.jwt = Some(jwt);
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+enum ClientError {
+    #[error("Reqwest error: {0}")]
+    Reqwest(#[from] reqwest::Error),
+    #[error("Error during HTTP request: {0}")]
+    RequestError(String),
+}
