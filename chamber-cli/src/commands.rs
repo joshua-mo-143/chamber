@@ -2,7 +2,6 @@ use chamber_core::core::AuthBody;
 use chamber_core::secrets::SecretInfo;
 use comfy_table::Table;
 use inquire::Text;
-use pgp::composed;
 use reqwest::StatusCode;
 
 use crate::errors::CliError;
@@ -384,47 +383,47 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
             }
         }
         Commands::Ssh => {
-            let string =
-                std::fs::read_to_string("/home/joshuamo/.config/chamber/chamber.key").unwrap();
-
-            let mut key_params = composed::key::SecretKeyParamsBuilder::default();
-
-            let password = "Password".to_string();
-
-            key_params
-                // change to 4096 later
-                .key_type(composed::KeyType::Rsa(2048))
-                .can_sign(true)
-                .can_encrypt(true)
-                .passphrase(Some(password.clone()))
-                .primary_user_id("Me <joshua.mo.876@gmail.com>".into())
-                .preferred_symmetric_algorithms(smallvec![
-                    crypto::sym::SymmetricKeyAlgorithm::AES256
-                ]);
-
-            let secret_key_params = key_params
-                .build()
-                .expect("Must be able to create secret key params");
-
-            let secret_key = secret_key_params
-                .generate()
-                .expect("Failed to generate a plain key.");
-
-            let passwd_fn = || password.clone();
-
-            let signed_secret_key = secret_key
-                .sign(passwd_fn)
-                .expect("Secret Key must be able to sign its own metadata");
-
-            let public_key = signed_secret_key.public_key();
-            let signed_public_key = public_key
-                .sign(&signed_secret_key, passwd_fn)
-                .expect("Public key must be able to sign its own metadata");
-
-            let key_pair = KeyPair {
-                secret_key: signed_secret_key,
-                public_key: signed_public_key,
-            };
+//            let string =
+//                std::fs::read_to_string("/home/joshuamo/.config/chamber/chamber.key").unwrap();
+//
+//            let mut key_params = composed::key::SecretKeyParamsBuilder::default();
+//
+//            let password = "Password".to_string();
+//
+//            key_params
+//                // change to 4096 later
+//                .key_type(composed::KeyType::Rsa(2048))
+//                .can_sign(true)
+//                .can_encrypt(true)
+//                .passphrase(Some(password.clone()))
+//                .primary_user_id("Me <joshua.mo.876@gmail.com>".into())
+//                .preferred_symmetric_algorithms(smallvec![
+//                    crypto::sym::SymmetricKeyAlgorithm::AES256
+//                ]);
+//
+//            let secret_key_params = key_params
+//                .build()
+//                .expect("Must be able to create secret key params");
+//
+//            let secret_key = secret_key_params
+//                .generate()
+//                .expect("Failed to generate a plain key.");
+//
+//            let passwd_fn = || password.clone();
+//
+//            let signed_secret_key = secret_key
+//                .sign(passwd_fn)
+//                .expect("Secret Key must be able to sign its own metadata");
+//
+//            let public_key = signed_secret_key.public_key();
+//            let signed_public_key = public_key
+//                .sign(&signed_secret_key, passwd_fn)
+//                .expect("Public key must be able to sign its own metadata");
+//
+//            let key_pair = KeyPair {
+//                secret_key: signed_secret_key,
+//                public_key: signed_public_key,
+//            };
         }
     }
 
