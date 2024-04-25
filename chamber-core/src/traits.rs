@@ -4,11 +4,11 @@ use crate::secrets::KeyFile;
 use crate::Postgres;
 use sqlx::PgPool;
 
-use shuttle_persist::PersistInstance;
 use crate::consts::KEYFILE_PATH;
+use shuttle_persist::PersistInstance;
 
 #[async_trait::async_trait]
-pub trait AppState: Clone + Send + Sync + 'static {
+pub trait AppState: std::fmt::Debug + Clone + Send + Sync + 'static {
     type D: Database;
 
     fn db(&self) -> &Self::D;
@@ -25,11 +25,13 @@ pub trait AppState: Clone + Send + Sync + 'static {
 
         Ok(true)
     }
+
+    #[tracing::instrument]
     fn check_keyfile_exists(&self) {
         if std::fs::read(KEYFILE_PATH).is_err() {
             println!("No chamber.bin file attached, generating one now...");
             let key = KeyFile::new();
-            println!("Your root key is: {}", key.unseal_key());
+            tracing::warn!("Your root key is: {}", key.unseal_key());
 
             let encoded = bincode::serialize(&key).unwrap();
 
@@ -39,9 +41,11 @@ pub trait AppState: Clone + Send + Sync + 'static {
             println!("Successfully saved. Don't forget that you can generate a new chamber file from the CLI and upload it!");
         }
     }
+
+    fn save_keyfile(&self, keyfile: KeyFile) -> Result<(), DatabaseError>;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ShuttleAppState {
     pub db: Postgres,
     pub lock: LockedStatus,
@@ -58,7 +62,7 @@ impl ShuttleAppState {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RegularAppState {
     pub db: Postgres,
     pub lock: LockedStatus,
@@ -87,43 +91,47 @@ impl AppState for ShuttleAppState {
         let res = match self.persist.load::<KeyFile>("KEYFILE") {
             Ok(res) => res,
             Err(_) => {
-        self.check_keyfile_exists();
-        let res = match std::fs::read(KEYFILE_PATH) {
-            Ok(res) => res,
-            Err(e) => return Err(DatabaseError::IoError(e)),
-        };
+                self.check_keyfile_exists();
+                let res = match std::fs::read(KEYFILE_PATH) {
+                    Ok(res) => res,
+                    Err(e) => return Err(DatabaseError::IoError(e)),
+                };
 
-        let decoded: KeyFile = bincode::deserialize(&res).unwrap();
+                let decoded: KeyFile = bincode::deserialize(&res).unwrap();
 
-        self.persist.save::<KeyFile>("KEYFILE", decoded).unwrap();
-        self.persist.load::<KeyFile>("KEYFILE").unwrap() 
-
-
-        }
+                self.persist.save::<KeyFile>("KEYFILE", decoded).unwrap();
+                self.persist.load::<KeyFile>("KEYFILE").unwrap()
+            }
         };
 
         Ok(res)
     }
-}
 
-impl AppState for RegularAppState {
-    type D = Postgres;
+    fn save_keyfile(&self, keyfile: KeyFile) -> Result<(), DatabaseError> {
+        self.persist.save::<KeyFile>("KEYFILE", keyfile).unwrap();
 
-    fn db(&self) -> &Self::D {
-        &self.db
-    }
-    fn locked_status(&self) -> LockedStatus {
-        self.lock.to_owned()
-    }
-    fn get_keyfile(&self) -> Result<KeyFile, DatabaseError> {
-        self.check_keyfile_exists();
-        let res = match std::fs::read(KEYFILE_PATH) {
-            Ok(res) => res,
-            Err(e) => return Err(DatabaseError::IoError(e)),
-        };
-
-        let decoded: KeyFile = bincode::deserialize(&res).unwrap();
-
-        Ok(decoded)
+        Ok(())
     }
 }
+
+//impl AppState for RegularAppState {
+//    type D = Postgres;
+//
+//    fn db(&self) -> &Self::D {
+//        &self.db
+//    }
+//    fn locked_status(&self) -> LockedStatus {
+//        self.lock.to_owned()
+//    }
+//    fn get_keyfile(&self) -> Result<KeyFile, DatabaseError> {
+//        self.check_keyfile_exists();
+//        let res = match std::fs::read(KEYFILE_PATH) {
+//            Ok(res) => res,
+//            Err(e) => return Err(DatabaseError::IoError(e)),
+//        };
+//
+//        let decoded: KeyFile = bincode::deserialize(&res).unwrap();
+//
+//        Ok(decoded)
+//    }
+//}

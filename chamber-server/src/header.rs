@@ -3,6 +3,7 @@ use axum_extra::headers::{Error, Header, HeaderName, HeaderValue};
 static X: HeaderName = HeaderName::from_static("x-chamber-key");
 static CUSTOM_CHAMBER_HEADER: &HeaderName = &X;
 
+#[derive(Debug)]
 pub struct ChamberHeader(String);
 
 impl ChamberHeader {

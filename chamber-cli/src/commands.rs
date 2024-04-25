@@ -2,6 +2,7 @@ use chamber_core::core::AuthBody;
 use chamber_core::secrets::SecretInfo;
 use comfy_table::Table;
 use inquire::Text;
+use pgp::composed;
 use reqwest::StatusCode;
 
 use crate::errors::CliError;
@@ -176,14 +177,14 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
                 let key = Text::new("Please enter your root key:").prompt()?;
 
-            let username = match args.username {
-                Some(res) => res,
-                None => Text::new("Please enter your desired username:").prompt()?,
-            };
-            let password = match args.password {
-                Some(res) => res,
-                None => Text::new("Please enter your desired password:").prompt()?,
-            };
+                let username = match args.username {
+                    Some(res) => res,
+                    None => Text::new("Please enter your desired username:").prompt()?,
+                };
+                let password = match args.password {
+                    Some(res) => res,
+                    None => Text::new("Please enter your desired password:").prompt()?,
+                };
                 let ctx = reqwest::blocking::Client::new();
 
                 let res = ctx
@@ -195,7 +196,9 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
                 match res.status() {
                     StatusCode::CREATED => {
-                        println!("User created! Make sure you keep the credentials somewhere safe.!");
+                        println!(
+                            "User created! Make sure you keep the credentials somewhere safe.!"
+                        );
                     }
                     _ => {
                         println!("Error: {}", res.text()?)
@@ -210,7 +213,7 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
                 if args.access_level.is_none() & args.roles.is_none() {
                     return Err(CliError::AtLeastOneArgError);
-                } 
+                }
 
                 let key = Text::new("Please enter your root key:").prompt()?;
 
@@ -221,10 +224,10 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
                     .header("Content-Type", "application/json")
                     .header("x-chamber-key", key)
                     .json(&serde_json::json!({
-                        "username": args.username, 
-                        "access_level": args.access_level,
-                        "roles": args.roles
-                        }))
+                    "username": args.username,
+                    "access_level": args.access_level,
+                    "roles": args.roles
+                    }))
                     .send()?;
 
                 match res.status() {
@@ -245,10 +248,10 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
                 let key = Text::new("Please enter your root key:").prompt()?;
 
-            let username = match args.username {
-                Some(res) => res,
-                None => Text::new("Name of the user to be deleted:").prompt()?,
-            };
+                let username = match args.username {
+                    Some(res) => res,
+                    None => Text::new("Name of the user to be deleted:").prompt()?,
+                };
 
                 let ctx = reqwest::blocking::Client::new();
 
@@ -278,8 +281,8 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
             },
             WebsiteCommands::Set(args) => {
                 let value = match args.value {
-                Some(res) => res,
-                None => Text::new("Enter the website URL:").prompt()?,
+                    Some(res) => res,
+                    None => Text::new("Enter the website URL:").prompt()?,
                 };
                 cfg.set_website(&value)?;
             }
@@ -307,24 +310,22 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
                 .header("Content-Type", "application/json")
                 .json(&serde_json::json!({
                     "username": username,
-                    "password": password 
+                    "password": password
                 }))
                 .send()?;
-        match res.status() {
-            StatusCode::OK => {
-            let res = res.json::<AuthBody>()?;
+            match res.status() {
+                StatusCode::OK => {
+                    let res = res.json::<AuthBody>()?;
 
-            let token = format!("{} {}", res.token_type, res.access_token);
-            cfg.set_token(&token)?;
+                    let token = format!("{} {}", res.token_type, res.access_token);
+                    cfg.set_token(&token)?;
 
-            println!("You've logged in successfully!");
-            },
-            _ => {
-            println!("Something went wrong: {}", res.text()?);
-            },
-
-        }
-
+                    println!("You've logged in successfully!");
+                }
+                _ => {
+                    println!("Something went wrong: {}", res.text()?);
+                }
+            }
         }
 
         Commands::Unseal { chamber_key } => {
@@ -375,15 +376,55 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
 
             match res.status() {
                 StatusCode::OK => {
-                    println!("The new crypto key and root key have been uploaded!");
-                    println!(
-                        "Note that any previous secrets you stored will need to be re-uploaded."
-                    );
+                    println!("The new crypto key and root key have been uploaded! All of your secrets have been re-keyed.");
                 }
                 _ => {
                     println!("{}", res.text()?);
                 }
             }
+        }
+        Commands::Ssh => {
+            let string =
+                std::fs::read_to_string("/home/joshuamo/.config/chamber/chamber.key").unwrap();
+
+            let mut key_params = composed::key::SecretKeyParamsBuilder::default();
+
+            let password = "Password".to_string();
+
+            key_params
+                // change to 4096 later
+                .key_type(composed::KeyType::Rsa(2048))
+                .can_sign(true)
+                .can_encrypt(true)
+                .passphrase(Some(password.clone()))
+                .primary_user_id("Me <joshua.mo.876@gmail.com>".into())
+                .preferred_symmetric_algorithms(smallvec![
+                    crypto::sym::SymmetricKeyAlgorithm::AES256
+                ]);
+
+            let secret_key_params = key_params
+                .build()
+                .expect("Must be able to create secret key params");
+
+            let secret_key = secret_key_params
+                .generate()
+                .expect("Failed to generate a plain key.");
+
+            let passwd_fn = || password.clone();
+
+            let signed_secret_key = secret_key
+                .sign(passwd_fn)
+                .expect("Secret Key must be able to sign its own metadata");
+
+            let public_key = signed_secret_key.public_key();
+            let signed_public_key = public_key
+                .sign(&signed_secret_key, passwd_fn)
+                .expect("Public key must be able to sign its own metadata");
+
+            let key_pair = KeyPair {
+                secret_key: signed_secret_key,
+                public_key: signed_public_key,
+            };
         }
     }
 

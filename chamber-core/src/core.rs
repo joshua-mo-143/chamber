@@ -23,7 +23,7 @@ impl AuthBody {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct CreateSecretParams {
     pub key: String,
     pub value: String,
@@ -34,9 +34,7 @@ pub struct CreateSecretParams {
 
 #[async_trait::async_trait]
 pub trait Database {
-    async fn view_all_secrets_admin(
-        &self,
-    ) -> Result<Vec<EncryptedSecret>, DatabaseError>;
+    async fn view_all_secrets_admin(&self) -> Result<Vec<EncryptedSecret>, DatabaseError>;
     async fn view_all_secrets(
         &self,
         user: User,
@@ -61,7 +59,7 @@ pub trait Database {
     async fn delete_user(&self, name: String) -> Result<(), DatabaseError>;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LockedStatus {
     pub is_sealed: Arc<Mutex<bool>>,
     pub relock_datetime: Option<DateTime<Utc>>,

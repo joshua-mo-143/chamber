@@ -1,5 +1,6 @@
 use crate::errors::DatabaseError;
 use crate::signing::{fetch_signing_key, verify_bytes, SigWrapper};
+use ed25519_dalek::Signer;
 use num_traits::cast::ToPrimitive;
 use ring::rand::SecureRandom;
 use ring::rand::SystemRandom;
@@ -11,7 +12,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_bytes::ByteBuf;
 use sqlx::types::BigDecimal;
 use zeroize::{Zeroize, ZeroizeOnDrop};
-use ed25519_dalek::Signer;
 
 use crate::consts::KEYFILE_PATH;
 
@@ -115,13 +115,13 @@ pub struct Secret {
     #[sqlx(try_from = "BigDecimal")]
     pub nonce: U64Wrapper,
     pub ciphertext: Vec<u8>,
-    pub sig: Vec<u8>
+    pub sig: Vec<u8>,
 }
 
 impl Secret {
     pub fn decrypt(&self, mut seq: OpeningKey<NonceCounter>) -> String {
         let sig: [u8; 64] = self.sig.clone().try_into().unwrap();
-        
+
         let aad = Aad::empty();
 
         let mut tag = self.ciphertext.clone();
@@ -208,8 +208,8 @@ impl<'a> EncryptedSecret {
     pub fn reencrypt(
         &mut self,
         mut open_key: OpeningKey<NonceCounter>,
-        mut sealing_key: SealingKey<NonceCounter>
-        ) {
+        mut sealing_key: SealingKey<NonceCounter>,
+    ) {
         let aad = Aad::empty();
 
         let mut tag = self.ciphertext.clone();
@@ -225,11 +225,10 @@ impl<'a> EncryptedSecret {
             .unwrap();
 
         self.ciphertext = transformed_in_place;
-
     }
 }
 
-#[derive(Zeroize, ZeroizeOnDrop)]
+#[derive(Zeroize, ZeroizeOnDrop, Debug)]
 pub struct SerializeKey(pub Vec<u8>);
 
 impl SerializeKey {
@@ -274,7 +273,7 @@ impl<'de> Deserialize<'de> for SerializeKey {
     }
 }
 
-#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop, Debug)]
 pub struct KeyFile {
     unlock_key: String,
     crypto_key: SerializeKey,

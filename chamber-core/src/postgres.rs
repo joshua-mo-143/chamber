@@ -8,7 +8,7 @@ use sqlx::PgPool;
 
 use crate::secrets::SecretInfo;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Postgres(pub PgPool);
 
 impl Postgres {
@@ -40,9 +40,7 @@ impl Database for Postgres {
         Ok(())
     }
 
-    async fn view_all_secrets_admin(
-        &self,
-    ) -> Result<Vec<EncryptedSecret>, DatabaseError> {
+    async fn view_all_secrets_admin(&self) -> Result<Vec<EncryptedSecret>, DatabaseError> {
         let retrieved_keys = sqlx::query_as::<_, EncryptedSecret>(
             "SELECT 
             key, nonce, ciphertext, tags, access_level, role_whitelist
@@ -94,14 +92,15 @@ impl Database for Postgres {
     }
 
     async fn rekey_all_secrets(&self, secrets: Vec<EncryptedSecret>) -> Result<(), DatabaseError> {
-        let transaction = self.0.try_begin().await?.unwrap();
+        let transaction = self.0.begin().await?;
 
         for secret in secrets {
             if let Err(e) = sqlx::query("UPDATE secrets SET ciphertext = $1 WHERE key = $2")
-            .bind(secret.ciphertext())
-            .bind(secret.key())
-            .execute(&self.0)
-            .await {
+                .bind(secret.ciphertext())
+                .bind(secret.key())
+                .execute(&self.0)
+                .await
+            {
                 transaction.rollback().await?;
                 return Err(DatabaseError::SQLError(e));
             }
@@ -109,7 +108,6 @@ impl Database for Postgres {
 
         transaction.commit().await?;
         Ok(())
-
     }
 
     async fn view_secret(&self, user: User, key: String) -> Result<EncryptedSecret, DatabaseError> {
