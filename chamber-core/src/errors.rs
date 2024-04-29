@@ -1,60 +1,44 @@
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum DatabaseError {
+    #[error("Key wasn't found")]
     KeyNotFound,
+    #[error("User wasn't found")]
     UserNotFound,
+    #[error("User already exists")]
     UserAlreadyExists,
+    #[error("Role doesn't exist")]
     RoleNotFound,
+    #[error("Role already exists")]
     RoleAlreadyExists,
+    #[error("Forbidden")]
     Forbidden,
+    #[error("UTF8 error")]
     Utf8Error,
+    #[error("Encryption error")]
     EncryptionError,
-    IoError(std::io::Error),
-    SQLError(sqlx::Error),
-    Argon2Error(argon2::password_hash::Error)
-}
-
-impl From<std::str::Utf8Error> for DatabaseError {
-    fn from(_error: std::str::Utf8Error) -> Self {
-        Self::Utf8Error
-    }
-}
-
-impl From<sqlx::Error> for DatabaseError {
-    fn from(err: sqlx::Error) -> Self {
-        Self::SQLError(err)
-    }
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("SQL error: {0}")]
+    SQLError(#[from] sqlx::Error),
+    #[error("Argon2id error: {0}")]
+    Argon2Error(argon2::password_hash::Error),
+    #[error("shuttle-persist error: {0}")]
+    ShuttlePersist(#[from] shuttle_persist::PersistError),
+    #[error("bincode error: {0}")]
+    Bincode(bincode::ErrorKind)
 }
 
 impl From<argon2::password_hash::Error> for DatabaseError {
-    fn from(err: argon2::password_hash::Error) -> Self {
-        Self::Argon2Error(err)
+    fn from(e: argon2::password_hash::Error) -> Self {
+        Self::Argon2Error(e)
     }
 }
 
-impl std::fmt::Display for DatabaseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::KeyNotFound => write!(f, "Key wasn't found"),
-            Self::UserNotFound => write!(f, "User wasn't found"),
-            Self::UserAlreadyExists => write!(f, "User already exists"),
-            Self::RoleNotFound => write!(
-                f,
-                "Attempted to delete a role that wasn't found for a given user"
-            ),
-            Self::RoleAlreadyExists => {
-                write!(f, "Attempted to add role that already existed for user")
-            }
-            Self::Forbidden => write!(
-                f,
-                "User attempted to access a key that they don't have access to"
-            ),
-            Self::Utf8Error => write!(f, "Error while trying to convert bytes to UTF8 string"),
-            Self::EncryptionError => write!(f, "Error while trying to encrypt or decrypt a value"),
-            Self::SQLError(e) => write!(f, "SQL error: {e}"),
-            Self::IoError(e) => write!(f, "IO error: {e}"),
-            Self::Argon2Error(e) => write!(f, "Hashing error: {e}"),
-        }
+impl From<Box<bincode::ErrorKind>> for DatabaseError {
+    fn from(e: Box<bincode::ErrorKind>) -> Self {
+        Self::Bincode(*e)
     }
-}
 
-impl std::error::Error for DatabaseError {}
+}

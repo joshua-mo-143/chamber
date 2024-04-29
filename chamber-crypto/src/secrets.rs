@@ -13,7 +13,7 @@ use serde_bytes::ByteBuf;
 use sqlx::types::BigDecimal;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::consts::KEYFILE_PATH;
+pub static KEYFILE_PATH: &str = "data/chamber.bin";
 
 #[derive(sqlx::FromRow, Zeroize, ZeroizeOnDrop)]
 pub struct EncryptedSecret {
@@ -23,9 +23,9 @@ pub struct EncryptedSecret {
     #[sqlx(try_from = "Vec<u8>")]
     pub sig: SigWrapper,
     pub ciphertext: Vec<u8>,
-    tags: Vec<String>,
-    access_level: i32,
-    role_whitelist: Vec<String>,
+    pub tags: Vec<String>,
+    pub access_level: i32,
+    pub role_whitelist: Vec<String>,
 }
 
 #[derive(Default)]
@@ -112,6 +112,7 @@ impl EncryptedSecretBuilder {
 
 #[derive(sqlx::FromRow)]
 pub struct Secret {
+    pub key: String,
     #[sqlx(try_from = "BigDecimal")]
     pub nonce: U64Wrapper,
     pub ciphertext: Vec<u8>,
@@ -134,14 +135,6 @@ impl Secret {
 
         String::from_utf8(plaintext.to_vec()).unwrap()
     }
-}
-
-#[derive(sqlx::FromRow, Clone, Serialize, Deserialize, Debug)]
-pub struct SecretInfo {
-    pub key: String,
-    pub tags: Vec<String>,
-    pub access_level: i32,
-    pub role_whitelist: Vec<String>,
 }
 
 impl<'a> EncryptedSecret {
@@ -313,6 +306,7 @@ impl<'b> KeyFile {
             Ok(res) => res,
             Err(e) => return Err(DatabaseError::IoError(e)),
         };
+
         Ok(())
     }
 
@@ -389,4 +383,12 @@ impl NonceSequence for NonceCounter {
         self.0 += 1; // advance the counter
         Ok(Nonce::try_assume_unique_for_key(&nonce_bytes).unwrap())
     }
+}
+
+#[derive(sqlx::FromRow, Clone, Serialize, Deserialize, Debug)]
+pub struct SecretInfo {
+    pub key: String,
+    pub tags: Vec<String>,
+    pub access_level: i32,
+    pub role_whitelist: Vec<String>,
 }

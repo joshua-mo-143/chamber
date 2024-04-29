@@ -1,12 +1,12 @@
 use crate::core::Database;
 use crate::errors::DatabaseError;
-use crate::secrets::{EncryptedSecret, Secret};
+use chamber_crypto::secrets::{EncryptedSecret, Secret};
 use crate::users::User;
 
 use sqlx::types::BigDecimal;
 use sqlx::PgPool;
 
-use crate::secrets::SecretInfo;
+use chamber_crypto::secrets::SecretInfo;
 
 #[derive(Clone, Debug)]
 pub struct Postgres(pub PgPool);
@@ -111,11 +111,11 @@ impl Database for Postgres {
     }
 
     async fn view_secret(&self, user: User, key: String) -> Result<EncryptedSecret, DatabaseError> {
-        let retrieved_key = sqlx::query_as::<_, EncryptedSecret>(
-            "SELECT key, nonce, ciphertext, tags, access_level, role_whitelist FROM secrets WHERE key = $1 AND $2 >= access_level",
+        let retrieved_key = sqlx::query_as!(EncryptedSecret,
+            "SELECT key, nonce, sig, ciphertext, tags, access_level, role_whitelist FROM secrets WHERE key = $1 AND $2 >= access_level",
+                key,
+                user.access_level()
         )
-        .bind(key)
-        .bind(user.access_level())
         .fetch_one(&self.0)
         .await?;
 
@@ -128,7 +128,7 @@ impl Database for Postgres {
         key: String,
     ) -> Result<Secret, DatabaseError> {
         let retrieved_key = sqlx::query_as::<_, Secret>(
-            "SELECT nonce, ciphertext FROM secrets WHERE 
+            "SELECT key, nonce, ciphertext, sig FROM secrets WHERE
             key = $1 
             AND $2 >= access_level 
             AND ( CASE 
@@ -142,6 +142,31 @@ impl Database for Postgres {
         .bind(user.access_level())
         .bind(user.roles())
         .fetch_one(&self.0)
+        .await?;
+
+        Ok(retrieved_key)
+    }
+
+    async fn view_secrets_decrypted_by_tag(
+        &self,
+        user: User,
+        key: String,
+    ) -> Result<Vec<Secret>, DatabaseError> {
+        let retrieved_key = sqlx::query_as::<_, Secret>(
+            "SELECT key, nonce, ciphertext, sig FROM secrets WHERE
+            $1 = ANY(tags)
+            AND $2 >= access_level
+            AND ( CASE
+            WHEN ARRAY_LENGTH(role_whitelist, 1) > 0
+            then role_whitelist && $3
+            else 1=1 end
+            )
+            ",
+        )
+        .bind(key)
+        .bind(user.access_level())
+        .bind(user.roles())
+        .fetch_all(&self.0)
         .await?;
 
         Ok(retrieved_key)

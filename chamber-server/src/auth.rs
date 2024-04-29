@@ -8,6 +8,7 @@ use axum::{
 use axum_extra::TypedHeader;
 use axum_extra::headers::{authorization::Bearer, Authorization};
 use chamber_core::errors::DatabaseError;
+use chamber_shared::AuthBody;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use once_cell::sync::Lazy;
 use ring::rand::SecureRandom;
@@ -18,7 +19,6 @@ use std::fmt::Display;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use chamber_core::core::AuthBody;
 use chamber_core::core::Database;
 use chamber_core::traits::AppState;
 

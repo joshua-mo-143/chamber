@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["chamber-cli", "chamber-core", "chamber-sdk", "chamber-server"]
+members = [ "chamber-cli",
+        "chamber-core",
+        "chamber-crypto",
+        "chamber-sdk",
+        "chamber-server"
+        , "chamber-shared"]
 
 [workspace.dependencies]
 axum = "0.7.4"
@@ -20,3 +25,4 @@ generic-array = { version = "0.14.7", features = ["zeroize"] }
 argon2 = "0.5.2"
 ed25519-dalek = { version = "2.1.0", features = ["rand_core"] }
 reqwest = { version = "0.11.22", features = ["json", "blocking", "multipart"] }
+thiserror = "1.0.59"

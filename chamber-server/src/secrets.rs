@@ -8,25 +8,26 @@ use axum::{
 };
 use axum_extra::TypedHeader;
 use chamber_core::consts::KEYFILE_PATH;
-use chamber_core::secrets::EncryptedSecret;
+use chamber_crypto::secrets::EncryptedSecret;
 use ring::aead::{BoundKey, OpeningKey, SealingKey};
 
-use chamber_core::secrets::{KeyFile, NonceCounter};
-use serde::Deserialize;
+use chamber_crypto::secrets::{KeyFile, NonceCounter};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::auth::Claims;
 use crate::errors::ApiError;
 
 use chamber_core::core::Database;
-use chamber_core::secrets::EncryptedSecretBuilder;
-use chamber_core::signing::check_signing_key_exists;
+use chamber_crypto::secrets::EncryptedSecretBuilder;
+use chamber_crypto::signing::check_signing_key_exists;
 use chamber_core::traits::AppState;
 
 use crate::header::ChamberHeader;
 use chamber_core::core::CreateSecretParams;
 
-#[tracing::instrument]
+use crate::auth::Claims;
+
+#[tracing::instrument(skip_all, fields(key = secret.key))]
 pub async fn create_secret<S: AppState>(
     State(state): State<Arc<S>>,
     _claim: Claims,
@@ -34,7 +35,7 @@ pub async fn create_secret<S: AppState>(
 ) -> Result<impl IntoResponse, ApiError> {
     let mut keyfile = state.get_keyfile()?;
 
-    check_signing_key_exists().unwrap();
+    check_signing_key_exists()?;
 
     let new_secret = EncryptedSecretBuilder::new(secret.key, secret.value)
         .with_access_level(secret.access_level)
@@ -42,7 +43,10 @@ pub async fn create_secret<S: AppState>(
         .with_whitelist(secret.role_whitelist)
         .build(keyfile.get_crypto_seal_key(), keyfile.nonce_number);
 
-    state.db().create_secret(new_secret).await.unwrap();
+    state.db().create_secret(new_secret).await?;
+
+    state.save_keyfile(keyfile);
+    tracing::info!("Secret created!");
 
     Ok(StatusCode::CREATED)
 }
@@ -82,6 +86,32 @@ pub async fn view_secret<S: AppState>(
     let decrypted_secret = secret.decrypt(unsealer);
 
     Ok(decrypted_secret)
+}
+
+#[tracing::instrument(skip_all)]
+pub async fn view_decrypted_secrets_by_tag<'a, S: AppState>(
+    State(state): State<Arc<S>>,
+    claim: Claims,
+    Json(secret): Json<SecretKey>,
+) -> Result<impl IntoResponse, ApiError> {
+    let user = state.db().get_user_from_name(claim.sub).await?;
+    let secrets = state.db().view_secrets_decrypted_by_tag(user, secret.key).await?;
+
+    let secrets = secrets.into_iter().map(|x| {
+    let unsealer = state.get_keyfile().unwrap().get_crypto_open_key(x.nonce.0);
+
+        SecretPublic { value: x.decrypt(unsealer), key: x.key }
+
+    }).collect::<Vec<SecretPublic>>();
+
+
+    Ok(Json(secrets))
+}
+
+#[derive(Serialize, Debug)]
+pub struct SecretPublic {
+    key: String,
+    value: String
 }
 
 #[tracing::instrument]
@@ -166,9 +196,9 @@ pub async fn upload_binfile<S: AppState>(
 
     state.db().rekey_all_secrets(secrets).await?;
 
-    std::fs::write(KEYFILE_PATH, data).unwrap();
+    std::fs::write(KEYFILE_PATH, data)?;
 
-    state.save_keyfile(decoded).unwrap();
+    state.save_keyfile(decoded)?;
 
     tracing::warn!("New chamberfile uploaded");
 

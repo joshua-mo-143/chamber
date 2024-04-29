@@ -17,7 +17,7 @@ pub fn check_signing_key_exists() -> Result<(), DatabaseError> {
     let mut csprng = OsRng;
     let signing_key: SigningKey = SigningKey::generate(&mut csprng);
 
-    std::fs::write(SIGNING_KEY_PATH, signing_key.to_keypair_bytes()).unwrap();
+    std::fs::write(SIGNING_KEY_PATH, signing_key.to_keypair_bytes())?;
 
     tracing::info!("Signing key generated.");
 

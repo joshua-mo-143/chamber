@@ -1,5 +1,4 @@
-use chamber_core::core::AuthBody;
-use chamber_core::secrets::SecretInfo;
+use chamber_shared::AuthBody;
 use comfy_table::Table;
 use inquire::Text;
 use reqwest::StatusCode;
@@ -8,8 +7,10 @@ use crate::errors::CliError;
 
 use crate::args::{Cli, Commands, SecretsCommands, UserCommands, WebsiteCommands};
 
+
 use crate::config::AppConfig;
-use chamber_core::secrets::KeyFile;
+use chamber_shared::SecretPublic;
+use chamber_crypto::secrets::{KeyFile, SecretInfo};
 
 pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
     match cli.command {
@@ -94,6 +95,32 @@ pub fn parse_cli(cli: Cli, cfg: AppConfig) -> Result<(), CliError> {
                     StatusCode::OK => println!("Meme"),
                     _ => println!("Not OK!"),
                 }
+            }
+            SecretsCommands::ListByTag(args) => {
+                let Some(jwt) = cfg.clone().jwt_key() else {
+                    panic!("You need to log in before you can do that!");
+                };
+
+                let website = match cfg.website() {
+                    Some(res) => format!("{res}/secrets/by_tag"),
+                    None => panic!("You didn't set a URL for a Chamber instance to log into!"),
+                };
+
+                let ctx = reqwest::blocking::Client::new();
+
+                let res = ctx
+                    .post(website)
+                    .header("Authorization", jwt)
+                    .json(&serde_json::json!({
+                        "key": args.key
+                    }))
+                    .send()?;
+
+                let json = res.json::<Vec<SecretPublic>>().unwrap();
+
+                let table = secrets_table_decrypted(json);
+
+                println!("{table}");
             }
             SecretsCommands::List(args) => {
                 let Some(jwt) = cfg.clone().jwt_key() else {
@@ -436,6 +463,17 @@ pub fn secrets_table(secrets: Vec<SecretInfo>) -> Table {
 
     secrets.into_iter().for_each(|x| {
         table.add_row(vec![x.key, x.tags.join(", ")]);
+    });
+
+    table
+}
+
+pub fn secrets_table_decrypted(secrets: Vec<SecretPublic>) -> Table {
+    let mut table = Table::new();
+    table.set_header(vec!["Key", "Value"]);
+
+    secrets.into_iter().for_each(|x| {
+        table.add_row(vec![x.key, x.value]);
     });
 
     table

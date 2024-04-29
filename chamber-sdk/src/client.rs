@@ -1,4 +1,5 @@
-use crate::consts::{GET_SECRETS_URL, LOGIN_URL};
+use crate::consts::{GET_SECRETS_URL, LOGIN_URL, GET_SECRETS_BY_TAG_URL};
+use chamber_shared::SecretPublic;
 use reqwest::Client as ReqClient;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -71,7 +72,31 @@ impl Client {
         }
     }
 
-    pub async fn get_secrets_with_tag(&self, tag: &str) -> Result<Vec<SecretInfo>, ClientError> {
+    pub async fn get_secrets_by_tag(&self, tag: &str) -> Result<Vec<SecretPublic>, ClientError> {
+        let jwt = match &self.credentials.jwt {
+            Some(res) => res,
+            None => todo!("Implement error here"),
+        };
+
+        let json = json!({
+            "key": tag
+        });
+
+        let response = self
+            .ctx
+            .post(format!("{}{}", self.url, GET_SECRETS_BY_TAG_URL))
+            .header("Authorization", jwt)
+            .json(&json)
+            .send()
+            .await?;
+
+        match response.status() {
+            StatusCode::OK => Ok(response.json::<Vec<SecretPublic>>().await?),
+            _ => Err(ClientError::RequestError(response.text().await?)),
+        }
+    }
+
+    pub async fn get_secret_info_with_tag(&self, tag: &str) -> Result<Vec<SecretInfo>, ClientError> {
         let jwt = match &self.credentials.jwt {
             Some(res) => res,
             None => todo!("Implement error here"),

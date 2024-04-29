@@ -1,27 +1,12 @@
 use crate::errors::DatabaseError;
-use crate::secrets::{EncryptedSecret, Secret, SecretInfo};
+use chamber_crypto::secrets::{EncryptedSecret, Secret, SecretInfo};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize};
 
 use crate::users::User;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AuthBody {
-    pub access_token: String,
-    pub token_type: String,
-}
-
-impl AuthBody {
-    pub fn new(access_token: String) -> Self {
-        Self {
-            access_token,
-            token_type: "Bearer".to_string(),
-        }
-    }
-}
 
 #[derive(Deserialize, Debug)]
 pub struct CreateSecretParams {
@@ -42,6 +27,8 @@ pub trait Database {
     ) -> Result<Vec<SecretInfo>, DatabaseError>;
     async fn view_secret_decrypted(&self, user: User, key: String)
         -> Result<Secret, DatabaseError>;
+    async fn view_secrets_decrypted_by_tag(&self, user: User, key: String)
+        -> Result<Vec<Secret>, DatabaseError>;
     async fn view_secret(&self, user: User, key: String) -> Result<EncryptedSecret, DatabaseError>;
     async fn create_secret(&self, secret: EncryptedSecret) -> Result<(), DatabaseError>;
     async fn update_secret(

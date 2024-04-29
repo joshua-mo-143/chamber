@@ -12,29 +12,44 @@ required-features = ["shuttle"]
 
 [features]
 default = ["shuttle"]
-shuttle = ["dep:shuttle-axum", "dep:shuttle-runtime", "dep:shuttle-persist", "dep:shuttle-shared-db"]
+shuttle = [
+        "dep:shuttle-axum",
+        "dep:shuttle-runtime",
+        "dep:shuttle-persist",
+        "dep:shuttle-shared-db",
+        ]
 
 [dependencies]
-axum = { version = "0.7.4", features = ["multipart"] }
-axum-extra = { version = "0.9.3", features = ["typed-header"] }
-bincode = "1.3.3"
 chamber-core = { path = "../chamber-core" }
+chamber-crypto  = { path = "../chamber-crypto" }
+chamber-shared = { path = "../chamber-shared" }
 chrono = { version = "0.4.31", features = ["clock", "serde"] }
 generic-array = { version = "0.14.7", features = ["zeroize"] }
 headers = "0.4.0"
-hyper = { version = "0.14", features = ["full"] }
-jsonwebtoken = "9.2.0"
-nanoid = "0.4.0"
-once_cell = "1.19.0"
-ring = "0.17.7"
+reqwest.workspace = true
 serde = { version = "1.0.193", features = ["derive"] }
 serde_json = "1.0.108"
-shuttle-axum = { version = "0.43.0", optional = true }
-shuttle-persist = { version = "0.43.0", optional = true }
-shuttle-runtime = { version = "0.43.0", optional = true }
-shuttle-shared-db = { version = "0.43.0", features = ["postgres", "sqlx"], optional = true }
-sqlx = { version = "0.7.3", features = ["runtime-tokio-native-tls", "postgres", "macros"] }
+sqlx = { version = "0.7.3", features = ["runtime-tokio-rustls", "postgres", "macros"] }
+thiserror = "1.0.59"
+axum = { version = "0.7.4", features = ["multipart"] }
+axum-extra = { version = "0.9.3", features = ["typed-header"] }
+bincode = {version = "1.3.3" }
+jsonwebtoken = { version = "9.2.0" }
+once_cell = { version =  "1.19.0" }
+ring = { version = "0.17.7" }
+
+#server
+
+shuttle-axum = { version = "0.44.0", optional = true }
+shuttle-persist = { version = "0.44.0", optional = true }
+shuttle-runtime = { version = "0.44.0", optional = true }
+shuttle-shared-db = { version = "0.44.0", features = ["postgres", "sqlx"], optional = true }
+
 tokio = { version = "1.28.2", features = ["sync"] }
-tower = "0.4.13"
+
 tracing = "0.1.40"
 typenum = "1.17.0"
+
+[dev-dependencies]
+tower = "0.4.13"
+hyper = { version = "0.14", features = ["full"] }

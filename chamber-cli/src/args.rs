@@ -104,8 +104,15 @@ pub enum SecretsCommands {
     },
     /// List the names of all secrets currently stored (that you have access to)
     List(ListArgs),
+    /// List decrypted secrets of all secrets by tag
+    ListByTag(ListByTagArgs),
     /// Delete a secret
     Rm(KeyArgs),
+}
+
+#[derive(Parser, Clone)]
+pub struct ListByTagArgs {
+    pub key: String
 }
 
 #[derive(Subcommand)]

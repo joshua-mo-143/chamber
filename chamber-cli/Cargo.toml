@@ -1,31 +1,20 @@
 [package]
 name = "chamber-cli"
-version = "0.2.0"
+version = "0.1.0"
 edition = "2021"
-license = "MIT"
-description = "The CLI for Chamber, the self-hostable SecretOps service."
-homepage = "https://www.github.com/joshua-mo-143/chamber"
-documentation = "https://www.github.com/joshua-mo-143/chamber"
-repository = "https://www.github.com/joshua-mo-143/chamber"
-readme = "../README.md"
 
-[[bin]]
-name = "chamber"
-path = "src/bin/main.rs"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bincode = { workspace = true }
-chamber-core = { path = "../chamber-core" }
-clap = { version = "4.4.11", features = ["derive", "env"] }
-comfy-table = "7.1.0"
-ed25519-dalek = { workspace = true }
-generic-array = { workspace = true }
-home = "0.5.9"
-inquire = "0.6.2"
-nanoid = { workspace = true }
-pgp = "0.11.0"
-reqwest = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-toml = "0.8.8"
-typenum = { workspace = true }
+bincode.workspace = true
+chamber-crypto = { version = "0.1.0", path = "../chamber-crypto" }
+chamber-shared = { path = "../chamber-shared" }
+clap = { version = "4.5.4", features = ["derive"] }
+comfy-table = { version = "7.1.1" }
+home = { version = "0.5.9" }
+inquire = { version = "0.7.5" }
+reqwest.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+toml = { version = "0.8.12" }
+workspace = "0.4.2"

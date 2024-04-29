@@ -20,6 +20,7 @@ pub fn init_router<S: AppState>(state: S) -> Router {
     let router = Router::new()
         .route("/secrets/set", post(secrets::create_secret))
         .route("/secrets/get", post(secrets::view_secret))
+        .route("/secrets/by_tag", post(secrets::view_decrypted_secrets_by_tag))
         .route(
             "/secrets",
             post(secrets::view_all_secrets)

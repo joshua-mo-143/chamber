@@ -1,6 +1,6 @@
 use crate::core::{Database, LockedStatus};
 use crate::errors::DatabaseError;
-use crate::secrets::KeyFile;
+use chamber_crypto::secrets::KeyFile;
 use crate::Postgres;
 use sqlx::PgPool;
 
@@ -62,21 +62,6 @@ impl ShuttleAppState {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct RegularAppState {
-    pub db: Postgres,
-    pub lock: LockedStatus,
-}
-
-impl RegularAppState {
-    pub fn new(db: PgPool) -> Self {
-        Self {
-            db: Postgres::from_pool(db),
-            lock: LockedStatus::default(),
-        }
-    }
-}
-
 impl AppState for ShuttleAppState {
     type D = Postgres;
 
@@ -88,7 +73,7 @@ impl AppState for ShuttleAppState {
     }
 
     fn get_keyfile(&self) -> Result<KeyFile, DatabaseError> {
-        let res = match self.persist.load::<KeyFile>("KEYFILE") {
+        let mut res = match self.persist.load::<KeyFile>("KEYFILE") {
             Ok(res) => res,
             Err(_) => {
                 self.check_keyfile_exists();
@@ -97,41 +82,21 @@ impl AppState for ShuttleAppState {
                     Err(e) => return Err(DatabaseError::IoError(e)),
                 };
 
-                let decoded: KeyFile = bincode::deserialize(&res).unwrap();
+                let decoded: KeyFile = bincode::deserialize(&res)?;
 
-                self.persist.save::<KeyFile>("KEYFILE", decoded).unwrap();
+                self.persist.save::<KeyFile>("KEYFILE", decoded)?;
                 self.persist.load::<KeyFile>("KEYFILE").unwrap()
             }
         };
+
+        res.nonce_number += 1;
 
         Ok(res)
     }
 
     fn save_keyfile(&self, keyfile: KeyFile) -> Result<(), DatabaseError> {
-        self.persist.save::<KeyFile>("KEYFILE", keyfile).unwrap();
+        self.persist.save::<KeyFile>("KEYFILE", keyfile)?;
 
         Ok(())
     }
 }
-
-//impl AppState for RegularAppState {
-//    type D = Postgres;
-//
-//    fn db(&self) -> &Self::D {
-//        &self.db
-//    }
-//    fn locked_status(&self) -> LockedStatus {
-//        self.lock.to_owned()
-//    }
-//    fn get_keyfile(&self) -> Result<KeyFile, DatabaseError> {
-//        self.check_keyfile_exists();
-//        let res = match std::fs::read(KEYFILE_PATH) {
-//            Ok(res) => res,
-//            Err(e) => return Err(DatabaseError::IoError(e)),
-//        };
-//
-//        let decoded: KeyFile = bincode::deserialize(&res).unwrap();
-//
-//        Ok(decoded)
-//    }
-//}
