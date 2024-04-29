@@ -1,7 +1,12 @@
-use chamber_cli::args::Cli;
-use chamber_cli::commands::parse_cli;
-use chamber_cli::config::AppConfig;
-use chamber_cli::errors::CliError;
+pub mod args;
+pub mod commands;
+pub mod config;
+pub mod errors;
+
+use crate::args::Cli;
+use crate::commands::parse_cli;
+use crate::config::AppConfig;
+use crate::errors::CliError;
 use clap::Parser;
 
 fn main() -> Result<(), CliError> {

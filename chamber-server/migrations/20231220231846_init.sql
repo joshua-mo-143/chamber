@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS secrets (
     id SERIAL PRIMARY KEY,
     key VARCHAR NOT NULL UNIQUE,
     nonce NUMERIC NOT NULL UNIQUE,
+    sig BYTEA NOT NULL UNIQUE,
     ciphertext BYTEA NOT NULL UNIQUE,
 	tags TEXT[] not null DEFAULT array[]::TEXT[],
 	access_level INT NOT NULL DEFAULT 0,

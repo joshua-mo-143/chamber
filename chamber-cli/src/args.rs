@@ -34,6 +34,7 @@ pub enum Commands {
         chamber_key: String,
     },
     Upload(UploadArgs),
+    Ssh,
 }
 
 #[derive(Parser, Clone)]
@@ -76,7 +77,7 @@ pub struct UpdateUserArgs {
     pub username: String,
     pub access_level: Option<i32>,
     #[arg(short, long, value_parser, num_args = 1.., value_delimiter = ' ')]
-    pub roles: Option<Vec<String>>
+    pub roles: Option<Vec<String>>,
 }
 
 #[derive(Subcommand)]
@@ -103,8 +104,15 @@ pub enum SecretsCommands {
     },
     /// List the names of all secrets currently stored (that you have access to)
     List(ListArgs),
+    /// List decrypted secrets of all secrets by tag
+    ListByTag(ListByTagArgs),
     /// Delete a secret
     Rm(KeyArgs),
+}
+
+#[derive(Parser, Clone)]
+pub struct ListByTagArgs {
+    pub key: String
 }
 
 #[derive(Subcommand)]
@@ -118,7 +126,7 @@ pub enum WebsiteCommands {
 #[derive(Parser, Clone)]
 pub struct SetArgs {
     #[arg(long, short = 'v')]
-    pub value: Option<String> 
+    pub value: Option<String>,
 }
 
 #[derive(Parser, Clone)]

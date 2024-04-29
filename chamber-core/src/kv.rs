@@ -4,7 +4,7 @@ use tokio::sync::{RwLock, Mutex};
 
 use crate::core::{CreateSecretParams, Database};
 use crate::errors::DatabaseError;
-use crate::secrets::{EncryptedSecret, SecretInfo, KeyFile};
+use chamber_crypto::secrets::{EncryptedSecret, SecretInfo, KeyFile};
 use crate::users::User;
 use crate::core::LockedStatus;
 

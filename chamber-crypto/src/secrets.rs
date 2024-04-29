@@ -1,4 +1,6 @@
 use crate::errors::DatabaseError;
+use crate::signing::{fetch_signing_key, verify_bytes, SigWrapper};
+use ed25519_dalek::Signer;
 use num_traits::cast::ToPrimitive;
 use ring::rand::SecureRandom;
 use ring::rand::SystemRandom;
@@ -11,17 +13,19 @@ use serde_bytes::ByteBuf;
 use sqlx::types::BigDecimal;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::consts::KEYFILE_PATH;
+pub static KEYFILE_PATH: &str = "data/chamber.bin";
 
 #[derive(sqlx::FromRow, Zeroize, ZeroizeOnDrop)]
 pub struct EncryptedSecret {
     pub key: String,
     #[sqlx(try_from = "BigDecimal")]
     pub nonce: U64Wrapper,
+    #[sqlx(try_from = "Vec<u8>")]
+    pub sig: SigWrapper,
     pub ciphertext: Vec<u8>,
-    tags: Vec<String>,
-    access_level: i32,
-    role_whitelist: Vec<String>,
+    pub tags: Vec<String>,
+    pub access_level: i32,
+    pub role_whitelist: Vec<String>,
 }
 
 #[derive(Default)]
@@ -68,9 +72,15 @@ impl EncryptedSecretBuilder {
         mut sealing_key: SealingKey<NonceCounter>,
         nonce_num: u64,
     ) -> EncryptedSecret {
+        let signing_key = fetch_signing_key().unwrap();
+
+        let value_as_bytes = self.value.into_bytes();
+
+        let sig = signing_key.sign(&value_as_bytes);
+
         let aad = Aad::empty();
 
-        let mut transformed_in_place: Vec<u8> = self.value.into_bytes();
+        let mut transformed_in_place = value_as_bytes.clone();
 
         sealing_key
             .seal_in_place_append_tag(aad, &mut transformed_in_place)
@@ -79,6 +89,7 @@ impl EncryptedSecretBuilder {
         EncryptedSecret {
             key: self.key,
             nonce: U64Wrapper(nonce_num),
+            sig: SigWrapper::new(sig),
             ciphertext: transformed_in_place,
             tags: if let Some(tags) = self.tags {
                 tags
@@ -101,29 +112,29 @@ impl EncryptedSecretBuilder {
 
 #[derive(sqlx::FromRow)]
 pub struct Secret {
+    pub key: String,
     #[sqlx(try_from = "BigDecimal")]
     pub nonce: U64Wrapper,
     pub ciphertext: Vec<u8>,
+    pub sig: Vec<u8>,
 }
 
 impl Secret {
     pub fn decrypt(&self, mut seq: OpeningKey<NonceCounter>) -> String {
+        let sig: [u8; 64] = self.sig.clone().try_into().unwrap();
+
         let aad = Aad::empty();
 
         let mut tag = self.ciphertext.clone();
 
         let plaintext = seq.open_in_place(aad, &mut tag).unwrap();
 
+        let signing_key = fetch_signing_key().unwrap();
+
+        verify_bytes(plaintext, &sig, signing_key).unwrap();
+
         String::from_utf8(plaintext.to_vec()).unwrap()
     }
-}
-
-#[derive(sqlx::FromRow, Clone, Serialize, Deserialize, Debug)]
-pub struct SecretInfo {
-    pub key: String,
-    pub tags: Vec<String>,
-    pub access_level: i32,
-    pub role_whitelist: Vec<String>,
 }
 
 impl<'a> EncryptedSecret {
@@ -190,8 +201,8 @@ impl<'a> EncryptedSecret {
     pub fn reencrypt(
         &mut self,
         mut open_key: OpeningKey<NonceCounter>,
-        mut sealing_key: SealingKey<NonceCounter>
-        ) {
+        mut sealing_key: SealingKey<NonceCounter>,
+    ) {
         let aad = Aad::empty();
 
         let mut tag = self.ciphertext.clone();
@@ -199,7 +210,7 @@ impl<'a> EncryptedSecret {
         let key = open_key.open_in_place(aad, &mut tag).unwrap();
 
         let plaintext = String::from_utf8(key.to_vec()).unwrap();
-        
+
         let mut transformed_in_place: Vec<u8> = plaintext.into_bytes();
 
         sealing_key
@@ -207,11 +218,10 @@ impl<'a> EncryptedSecret {
             .unwrap();
 
         self.ciphertext = transformed_in_place;
-
     }
 }
 
-#[derive(Zeroize, ZeroizeOnDrop)]
+#[derive(Zeroize, ZeroizeOnDrop, Debug)]
 pub struct SerializeKey(pub Vec<u8>);
 
 impl SerializeKey {
@@ -256,7 +266,7 @@ impl<'de> Deserialize<'de> for SerializeKey {
     }
 }
 
-#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop, Debug)]
 pub struct KeyFile {
     unlock_key: String,
     crypto_key: SerializeKey,
@@ -296,6 +306,7 @@ impl<'b> KeyFile {
             Ok(res) => res,
             Err(e) => return Err(DatabaseError::IoError(e)),
         };
+
         Ok(())
     }
 
@@ -338,6 +349,7 @@ impl From<BigDecimal> for U64Wrapper {
     }
 }
 
+#[derive(Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct NonceCounter(u64);
 
 impl Default for NonceCounter {
@@ -354,6 +366,10 @@ impl NonceCounter {
     pub fn from_num(num: u64) -> Self {
         Self(num)
     }
+
+    pub fn inner(&self) -> u64 {
+        self.0
+    }
 }
 
 impl NonceSequence for NonceCounter {
@@ -367,4 +383,12 @@ impl NonceSequence for NonceCounter {
         self.0 += 1; // advance the counter
         Ok(Nonce::try_assume_unique_for_key(&nonce_bytes).unwrap())
     }
+}
+
+#[derive(sqlx::FromRow, Clone, Serialize, Deserialize, Debug)]
+pub struct SecretInfo {
+    pub key: String,
+    pub tags: Vec<String>,
+    pub access_level: i32,
+    pub role_whitelist: Vec<String>,
 }

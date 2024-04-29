@@ -4,26 +4,30 @@ use axum::{
     http::{Request, StatusCode},
     middleware::Next,
     response::IntoResponse,
-    Json, TypedHeader,
+    Json,
 };
+use axum_extra::TypedHeader;
 use chamber_core::consts::KEYFILE_PATH;
-use ring::aead::{OpeningKey, SealingKey, BoundKey};
-use chamber_core::secrets::EncryptedSecret;
+use chamber_crypto::secrets::EncryptedSecret;
+use ring::aead::{BoundKey, OpeningKey, SealingKey};
 
-use chamber_core::secrets::{KeyFile, NonceCounter};
-use serde::Deserialize;
+use chamber_crypto::secrets::{KeyFile, NonceCounter};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::auth::Claims;
 use crate::errors::ApiError;
 
 use chamber_core::core::Database;
-use chamber_core::secrets::EncryptedSecretBuilder;
+use chamber_crypto::secrets::EncryptedSecretBuilder;
+use chamber_crypto::signing::check_signing_key_exists;
 use chamber_core::traits::AppState;
 
 use crate::header::ChamberHeader;
 use chamber_core::core::CreateSecretParams;
 
+use crate::auth::Claims;
+
+#[tracing::instrument(skip_all, fields(key = secret.key))]
 pub async fn create_secret<S: AppState>(
     State(state): State<Arc<S>>,
     _claim: Claims,
@@ -31,17 +35,23 @@ pub async fn create_secret<S: AppState>(
 ) -> Result<impl IntoResponse, ApiError> {
     let mut keyfile = state.get_keyfile()?;
 
+    check_signing_key_exists()?;
+
     let new_secret = EncryptedSecretBuilder::new(secret.key, secret.value)
         .with_access_level(secret.access_level)
         .with_tags(secret.tags)
         .with_whitelist(secret.role_whitelist)
         .build(keyfile.get_crypto_seal_key(), keyfile.nonce_number);
 
-    state.db().create_secret(new_secret).await.unwrap();
+    state.db().create_secret(new_secret).await?;
+
+    state.save_keyfile(keyfile);
+    tracing::info!("Secret created!");
 
     Ok(StatusCode::CREATED)
 }
 
+#[tracing::instrument]
 pub async fn delete_secret<S: AppState>(
     State(state): State<Arc<S>>,
     _claim: Claims,
@@ -52,16 +62,17 @@ pub async fn delete_secret<S: AppState>(
     Ok(StatusCode::OK)
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct SecretKey {
     key: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct ListSecretsArgs {
     pub tag_filter: Option<String>,
 }
 
+#[tracing::instrument(fields(secret_key = secret.key))]
 pub async fn view_secret<S: AppState>(
     State(state): State<Arc<S>>,
     claim: Claims,
@@ -72,11 +83,38 @@ pub async fn view_secret<S: AppState>(
 
     let unsealer = state.get_keyfile()?.get_crypto_open_key(secret.nonce.0);
 
-    let res = secret.decrypt(unsealer);
+    let decrypted_secret = secret.decrypt(unsealer);
 
-    Ok(res)
+    Ok(decrypted_secret)
 }
 
+#[tracing::instrument(skip_all)]
+pub async fn view_decrypted_secrets_by_tag<'a, S: AppState>(
+    State(state): State<Arc<S>>,
+    claim: Claims,
+    Json(secret): Json<SecretKey>,
+) -> Result<impl IntoResponse, ApiError> {
+    let user = state.db().get_user_from_name(claim.sub).await?;
+    let secrets = state.db().view_secrets_decrypted_by_tag(user, secret.key).await?;
+
+    let secrets = secrets.into_iter().map(|x| {
+    let unsealer = state.get_keyfile().unwrap().get_crypto_open_key(x.nonce.0);
+
+        SecretPublic { value: x.decrypt(unsealer), key: x.key }
+
+    }).collect::<Vec<SecretPublic>>();
+
+
+    Ok(Json(secrets))
+}
+
+#[derive(Serialize, Debug)]
+pub struct SecretPublic {
+    key: String,
+    value: String
+}
+
+#[tracing::instrument]
 pub async fn view_all_secrets<S: AppState>(
     State(state): State<Arc<S>>,
     claim: Claims,
@@ -84,17 +122,18 @@ pub async fn view_all_secrets<S: AppState>(
 ) -> Result<impl IntoResponse, ApiError> {
     let user = state.db().get_user_from_name(claim.sub).await?;
 
-    let string = state.db().view_all_secrets(user, secret.tag_filter).await?;
+    let secrets_info = state.db().view_all_secrets(user, secret.tag_filter).await?;
 
-    Ok(Json(string))
+    Ok(Json(secrets_info))
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct UpdateSecret {
     key: String,
     update_data: Vec<String>,
 }
 
+#[tracing::instrument]
 pub async fn update_secret<S: AppState>(
     State(state): State<Arc<S>>,
     claim: Claims,
@@ -110,10 +149,10 @@ pub async fn update_secret<S: AppState>(
     Ok(StatusCode::OK)
 }
 
-pub async fn check_locked<B, S: AppState>(
+pub async fn check_locked<S: AppState>(
     State(state): State<Arc<S>>,
-    req: Request<B>,
-    next: Next<B>,
+    req: Request<axum::body::Body>,
+    next: Next,
 ) -> Result<impl IntoResponse, ApiError> {
     match state.locked_status().is_locked().await {
         false => Ok(next.run(req).await),
@@ -121,11 +160,11 @@ pub async fn check_locked<B, S: AppState>(
     }
 }
 
+#[tracing::instrument]
 pub async fn upload_binfile<S: AppState>(
     State(state): State<Arc<S>>,
-    mut multipart: Multipart
-    ) -> Result<impl IntoResponse, ApiError> {
-
+    mut multipart: Multipart,
+) -> Result<impl IntoResponse, ApiError> {
     let mut data: Option<Vec<u8>> = None;
 
     while let Some(field) = multipart.next_field().await.unwrap() {
@@ -137,41 +176,50 @@ pub async fn upload_binfile<S: AppState>(
     let decoded: KeyFile = bincode::deserialize(&data.clone()).unwrap();
 
     let secrets = state.db().view_all_secrets_admin().await?;
-    
-    let secrets: Vec<EncryptedSecret> = secrets.into_iter().map(|mut secret| {
-        let unbound_key_old = state.get_keyfile().unwrap().crypto_key().make_key(); 
-        let unbound_key_new = decoded.crypto_key().make_key(); 
 
-        let nonce_sequence_open = NonceCounter::from_num(secret.nonce.inner());
-        let nonce_sequence_seal = NonceCounter::from_num(secret.nonce.inner());
-        let opening_key = OpeningKey::new(unbound_key_old, nonce_sequence_open);
-        let sealing_key = SealingKey::new(unbound_key_new, nonce_sequence_seal);
+    let secrets: Vec<EncryptedSecret> = secrets
+        .into_iter()
+        .map(|mut secret| {
+            let unbound_key_old = state.get_keyfile().unwrap().crypto_key().make_key();
+            let unbound_key_new = decoded.crypto_key().make_key();
 
-        secret.reencrypt(opening_key, sealing_key);
+            let nonce_sequence_open = NonceCounter::from_num(secret.nonce.inner());
+            let nonce_sequence_seal = NonceCounter::from_num(secret.nonce.inner());
+            let opening_key = OpeningKey::new(unbound_key_old, nonce_sequence_open);
+            let sealing_key = SealingKey::new(unbound_key_new, nonce_sequence_seal);
 
-        secret
-    }).collect();
+            secret.reencrypt(opening_key, sealing_key);
 
+            secret
+        })
+        .collect();
 
     state.db().rekey_all_secrets(secrets).await?;
 
-    std::fs::write(KEYFILE_PATH, data).unwrap();
+    std::fs::write(KEYFILE_PATH, data)?;
 
-    println!("NEW CHAMBER FILE UPLOADED");
+    state.save_keyfile(decoded)?;
+
+    tracing::warn!("New chamberfile uploaded");
 
     Ok(StatusCode::OK)
 }
 
+#[tracing::instrument(skip(state))]
 pub async fn unlock<S: AppState>(
     State(state): State<Arc<S>>,
     TypedHeader(auth): TypedHeader<ChamberHeader>,
 ) -> Result<impl IntoResponse, ApiError> {
     if auth.key() != state.get_keyfile()?.unseal_key() {
+        tracing::warn!("Unseal didn't match {}", state.get_keyfile()?.unseal_key());
         return Err(ApiError::Forbidden);
     }
 
     match state.locked_status().unlock().await {
-        Ok(true) => Ok(StatusCode::OK),
+        Ok(true) => {
+            tracing::info!("Vault has been unlocked!");
+            Ok(StatusCode::OK)
+        }
         Ok(false) => Err(ApiError::Forbidden),
         Err(_e) => Err(ApiError::Forbidden),
     }

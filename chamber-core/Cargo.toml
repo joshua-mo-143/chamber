@@ -13,6 +13,7 @@ readme = "../README.md"
 [dependencies]
 async-trait = "0.1.74"
 argon2 = { workspace = true }
+chamber-crypto  = { path = "../chamber-crypto"}
 axum = { workspace = true, features = ["macros"] }
 bincode = { workspace = true }
 chrono = { workspace = true }
@@ -25,10 +26,13 @@ ring = { workspace = true }
 serde = { workspace = true }
 serde_bytes = "0.11.12"
 serde_json = { workspace = true }
-shuttle-persist =  { version = "0.35.1" }
+shuttle-persist =  { version = "0.44.0" }
 sqlx = { workspace = true, features = ["bigdecimal"] }
 tokio = { workspace = true }
 tower = { workspace = true }
 tracing = { workspace = true }
 typenum = { workspace = true }
+thiserror = { workspace = true }
+ed25519-dalek = { workspace = true }
 zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
+rand = "0.8.5"

@@ -2,3 +2,4 @@
 .shuttle-storage
 Secrets*.toml
 chamber.bin
+data/
